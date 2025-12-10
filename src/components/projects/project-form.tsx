@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, X, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,16 +24,22 @@ import {
 } from '@/components/ui/dialog';
 import { Project, ProjectStatus } from '@/types';
 
+interface AdditionalLink {
+  label: string;
+  url: string;
+}
+
 interface ProjectFormData {
   name: string;
   description: string;
-  notes_url: string;
   mac_path: string;
   pc_path: string;
-  github_url: string;
+  github_ssh: string;
+  github_https: string;
   status: ProjectStatus;
   color: string;
   icon: string;
+  additional_links: AdditionalLink[];
 }
 
 interface ProjectFormProps {
@@ -68,6 +74,11 @@ const colorOptions = [
 export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedColor, setSelectedColor] = useState(project?.color || colorOptions[0]);
+  const [additionalLinks, setAdditionalLinks] = useState<AdditionalLink[]>(
+    project?.links?.map((l) => ({ label: l.label, url: l.url })) || []
+  );
+  const [newLinkLabel, setNewLinkLabel] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
 
   const {
     register,
@@ -80,23 +91,37 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
     defaultValues: {
       name: project?.name || '',
       description: project?.description || '',
-      notes_url: project?.notes_url || '',
       mac_path: project?.mac_path || '',
       pc_path: project?.pc_path || '',
-      github_url: project?.github_url || '',
+      github_ssh: project?.github_ssh || '',
+      github_https: project?.github_https || '',
       status: project?.status || 'idea',
       color: project?.color || colorOptions[0],
       icon: project?.icon || '',
+      additional_links: [],
     },
   });
 
   const status = watch('status');
 
+  const addLink = () => {
+    if (newLinkLabel.trim() && newLinkUrl.trim()) {
+      setAdditionalLinks([...additionalLinks, { label: newLinkLabel.trim(), url: newLinkUrl.trim() }]);
+      setNewLinkLabel('');
+      setNewLinkUrl('');
+    }
+  };
+
+  const removeLink = (index: number) => {
+    setAdditionalLinks(additionalLinks.filter((_, i) => i !== index));
+  };
+
   const handleFormSubmit = async (data: ProjectFormData) => {
     setIsLoading(true);
     try {
-      await onSubmit({ ...data, color: selectedColor });
+      await onSubmit({ ...data, color: selectedColor, additional_links: additionalLinks });
       reset();
+      setAdditionalLinks([]);
       onClose();
     } catch (error) {
       console.error('Error submitting project:', error);
@@ -219,29 +244,82 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
             </div>
           </div>
 
-          {/* Links */}
+          {/* GitHub Links */}
           <div className="space-y-4 rounded-lg border border-border p-4">
-            <h4 className="font-medium">Links</h4>
+            <h4 className="font-medium">GitHub Repository</h4>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="github_url">GitHub URL</Label>
+                <Label htmlFor="github_ssh">SSH URL</Label>
                 <Input
-                  id="github_url"
-                  type="url"
-                  placeholder="https://github.com/user/repo"
-                  {...register('github_url')}
+                  id="github_ssh"
+                  placeholder="git@github.com:user/repo.git"
+                  {...register('github_ssh')}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="notes_url">Notes URL</Label>
+                <Label htmlFor="github_https">HTTPS URL</Label>
                 <Input
-                  id="notes_url"
-                  type="url"
-                  placeholder="https://notion.so/..."
-                  {...register('notes_url')}
+                  id="github_https"
+                  placeholder="https://github.com/user/repo.git"
+                  {...register('github_https')}
                 />
               </div>
             </div>
+          </div>
+
+          {/* Additional Links */}
+          <div className="space-y-4 rounded-lg border border-border p-4">
+            <h4 className="font-medium">Additional Links</h4>
+
+            {/* Existing links */}
+            {additionalLinks.length > 0 && (
+              <div className="space-y-2">
+                {additionalLinks.map((link, index) => (
+                  <div key={index} className="flex items-center gap-2 text-sm">
+                    <LinkIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="font-medium min-w-[80px]">{link.label}:</span>
+                    <span className="text-muted-foreground truncate flex-1">{link.url}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 flex-shrink-0"
+                      onClick={() => removeLink(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add new link */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Label (e.g., Docs)"
+                value={newLinkLabel}
+                onChange={(e) => setNewLinkLabel(e.target.value)}
+                className="w-[120px]"
+              />
+              <Input
+                placeholder="URL"
+                value={newLinkUrl}
+                onChange={(e) => setNewLinkUrl(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={addLink}
+                disabled={!newLinkLabel.trim() || !newLinkUrl.trim()}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Add links to docs, Figma, Notion, or any other resources
+            </p>
           </div>
 
           <DialogFooter>

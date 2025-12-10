@@ -3,7 +3,7 @@
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { Github, FileText, CheckSquare } from 'lucide-react';
+import { Github, StickyNote, CheckSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Project, ProjectStatus } from '@/types';
@@ -102,9 +102,9 @@ function ProjectNodeComponent({ data, selected }: { data: ProjectNodeData; selec
 
         {/* Footer */}
         <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-          {project.github_url && (
+          {(project.github_https || project.github_ssh) && (
             <a
-              href={project.github_url}
+              href={project.github_https || project.github_ssh?.replace('git@github.com:', 'https://github.com/').replace('.git', '') || '#'}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
@@ -113,16 +113,10 @@ function ProjectNodeComponent({ data, selected }: { data: ProjectNodeData; selec
               <Github className="h-3.5 w-3.5" />
             </a>
           )}
-          {project.notes_url && (
-            <a
-              href={project.notes_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="hover:text-foreground transition-colors"
-            >
-              <FileText className="h-3.5 w-3.5" />
-            </a>
+          {project.notes && (
+            <div className="hover:text-foreground transition-colors">
+              <StickyNote className="h-3.5 w-3.5" />
+            </div>
           )}
           {todoCount > 0 && (
             <div className="flex items-center gap-1">

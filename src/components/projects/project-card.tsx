@@ -5,13 +5,14 @@ import Link from 'next/link';
 import {
   ExternalLink,
   Github,
-  FileText,
   FolderOpen,
   MoreHorizontal,
   CheckSquare,
   Pencil,
   Trash2,
   Copy,
+  Link as LinkIcon,
+  StickyNote,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -166,11 +167,12 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
 
           {/* Quick Links */}
           <div className="flex items-center gap-2 pt-2 border-t border-border">
-            {project.github_url && (
+            {/* GitHub link - prefer HTTPS URL for browser viewing */}
+            {(project.github_https || project.github_ssh) && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <a
-                    href={project.github_url}
+                    href={project.github_https || project.github_ssh?.replace('git@github.com:', 'https://github.com/').replace('.git', '') || '#'}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1.5 rounded-md hover:bg-muted transition-colors"
@@ -182,19 +184,34 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
               </Tooltip>
             )}
 
-            {project.notes_url && (
+            {/* Notes indicator - links to project detail page notes tab */}
+            {project.notes && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <a
-                    href={project.notes_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    href={`/projects/${project.id}?tab=notes`}
                     className="p-1.5 rounded-md hover:bg-muted transition-colors"
                   >
-                    <FileText className="h-4 w-4" />
-                  </a>
+                    <StickyNote className="h-4 w-4" />
+                  </Link>
                 </TooltipTrigger>
-                <TooltipContent>Notes</TooltipContent>
+                <TooltipContent>View Notes</TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Additional links count */}
+            {project.links && project.links.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={`/projects/${project.id}`}
+                    className="flex items-center gap-1 p-1.5 rounded-md hover:bg-muted transition-colors text-xs"
+                  >
+                    <LinkIcon className="h-4 w-4" />
+                    <span>{project.links.length}</span>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>{project.links.length} additional link(s)</TooltipContent>
               </Tooltip>
             )}
 

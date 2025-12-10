@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 
 export default function ProjectsPage() {
-  const { projects, isLoading, createProject, updateProject, deleteProject } = useProjects();
+  const { projects, isLoading, createProjectWithLinks, updateProjectWithLinks, deleteProject } = useProjects();
   const { projectView, setProjectView, quickAddOpen, quickAddType, closeQuickAdd } = useUIStore();
 
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -36,12 +36,21 @@ export default function ProjectsPage() {
 
   // Handle form submission
   const handleCreateProject = async (data: any) => {
-    await createProject.mutateAsync(data);
+    const { additional_links, ...projectData } = data;
+    await createProjectWithLinks.mutateAsync({
+      ...projectData,
+      links: additional_links,
+    });
   };
 
   const handleUpdateProject = async (data: any) => {
     if (editingProject) {
-      await updateProject.mutateAsync({ id: editingProject.id, ...data });
+      const { additional_links, ...projectData } = data;
+      await updateProjectWithLinks.mutateAsync({
+        id: editingProject.id,
+        ...projectData,
+        links: additional_links,
+      });
       setEditingProject(null);
     }
   };

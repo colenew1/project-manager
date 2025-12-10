@@ -7,7 +7,7 @@ import {
   FolderKanban,
   Map,
   CheckSquare,
-  Code2,
+  Key,
   Settings,
   Plus,
   ChevronLeft,
@@ -22,7 +22,7 @@ const navItems = [
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/map', label: 'Map', icon: Map },
   { href: '/todos', label: 'Todos', icon: CheckSquare },
-  { href: '/snippets', label: 'Snippets', icon: Code2 },
+  { href: '/keychain', label: 'Keychain', icon: Key },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

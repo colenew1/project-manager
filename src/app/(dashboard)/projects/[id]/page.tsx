@@ -8,19 +8,22 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   Github,
-  FileText,
   FolderOpen,
   ExternalLink,
   Pencil,
   Trash2,
   Copy,
   Check,
+  Link as LinkIcon,
+  Save,
+  FileText,
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TodoInput } from '@/components/todos/todo-input';
 import { TodoItem } from '@/components/todos/todo-item';
 import { ProjectForm } from '@/components/projects/project-form';
@@ -28,7 +31,7 @@ import { useProject, useProjects } from '@/hooks/use-projects';
 import { useTodos } from '@/hooks/use-todos';
 import { cn } from '@/lib/utils';
 import { ProjectStatus, TodoPriority } from '@/types';
-import { detectPlatform, getRelevantPath, generateVSCodeUrl } from '@/lib/utils/platform';
+import { detectPlatform, generateVSCodeUrl } from '@/lib/utils/platform';
 import { toast } from 'sonner';
 
 const statusConfig: Record<ProjectStatus, { label: string; className: string }> = {
@@ -49,20 +52,42 @@ export default function ProjectDetailPage() {
   const { todos, createTodo, toggleTodo, deleteTodo } = useTodos(projectId);
 
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [copiedPath, setCopiedPath] = useState<'mac' | 'pc' | null>(null);
+  const [copiedItem, setCopiedItem] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
+  const [notesLoaded, setNotesLoaded] = useState(false);
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
 
   const platform = detectPlatform();
 
-  const copyPath = async (path: string, type: 'mac' | 'pc') => {
-    await navigator.clipboard.writeText(path);
-    setCopiedPath(type);
-    toast.success('Path copied to clipboard');
-    setTimeout(() => setCopiedPath(null), 2000);
+  // Load notes when project loads
+  if (project && !notesLoaded) {
+    setNotes(project.notes || '');
+    setNotesLoaded(true);
+  }
+
+  const copyToClipboard = async (text: string, item: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedItem(item);
+    toast.success('Copied to clipboard');
+    setTimeout(() => setCopiedItem(null), 2000);
   };
 
   const handleUpdateProject = async (data: any) => {
     if (project) {
       await updateProject.mutateAsync({ id: project.id, ...data });
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!project) return;
+    setIsSavingNotes(true);
+    try {
+      await updateProject.mutateAsync({ id: project.id, notes });
+      toast.success('Notes saved');
+    } catch (error) {
+      toast.error('Failed to save notes');
+    } finally {
+      setIsSavingNotes(false);
     }
   };
 
@@ -117,7 +142,7 @@ export default function ProjectDetailPage() {
     <>
       <Header />
 
-      <div className="p-4 md:p-6 max-w-4xl mx-auto">
+      <div className="p-4 md:p-6 max-w-5xl mx-auto">
         {/* Back Button */}
         <Link
           href="/projects"
@@ -177,152 +202,238 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Paths Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Directory Paths</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {project.mac_path && (
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Mac</p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 rounded bg-muted px-2 py-1 text-sm truncate">
-                      {project.mac_path}
-                    </code>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => copyPath(project.mac_path!, 'mac')}
-                    >
-                      {copiedPath === 'mac' ? (
-                        <Check className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
-                    {platform === 'mac' && (
-                      <a href={generateVSCodeUrl(project.mac_path)}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <ExternalLink className="h-4 w-4" />
+        {/* Tabs */}
+        <Tabs defaultValue="details" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsTrigger value="todos">
+              Todos {pendingTodos.length > 0 && `(${pendingTodos.length})`}
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Details Tab */}
+          <TabsContent value="details" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Paths Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4" />
+                    Directory Paths
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {project.mac_path && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-medium">Mac</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
+                          {project.mac_path}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 flex-shrink-0"
+                          onClick={() => copyToClipboard(project.mac_path!, 'mac')}
+                        >
+                          {copiedItem === 'mac' ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
                         </Button>
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-              {project.pc_path && (
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">PC</p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 rounded bg-muted px-2 py-1 text-sm truncate">
-                      {project.pc_path}
-                    </code>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => copyPath(project.pc_path!, 'pc')}
-                    >
-                      {copiedPath === 'pc' ? (
-                        <Check className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
-                    {platform === 'windows' && (
-                      <a href={generateVSCodeUrl(project.pc_path)}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <ExternalLink className="h-4 w-4" />
+                        {platform === 'mac' && (
+                          <a href={generateVSCodeUrl(project.mac_path)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {project.pc_path && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-medium">PC</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
+                          {project.pc_path}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 flex-shrink-0"
+                          onClick={() => copyToClipboard(project.pc_path!, 'pc')}
+                        >
+                          {copiedItem === 'pc' ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
                         </Button>
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-              {!project.mac_path && !project.pc_path && (
-                <p className="text-sm text-muted-foreground">No paths configured</p>
-              )}
-            </CardContent>
-          </Card>
+                        {platform === 'windows' && (
+                          <a href={generateVSCodeUrl(project.pc_path)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {!project.mac_path && !project.pc_path && (
+                    <p className="text-sm text-muted-foreground">No paths configured</p>
+                  )}
+                </CardContent>
+              </Card>
 
-          {/* Links Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Links</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {project.github_url && (
-                <a
-                  href={project.github_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
-                >
-                  <Github className="h-4 w-4" />
-                  GitHub Repository
-                  <ExternalLink className="h-3 w-3 ml-auto" />
-                </a>
-              )}
-              {project.notes_url && (
-                <a
-                  href={project.notes_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
-                >
-                  <FileText className="h-4 w-4" />
-                  Notes
-                  <ExternalLink className="h-3 w-3 ml-auto" />
-                </a>
-              )}
-              {!project.github_url && !project.notes_url && (
-                <p className="text-sm text-muted-foreground">No links configured</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Todos Section */}
-        <div id="todos" className="mt-8">
-          <h2 className="text-lg font-semibold mb-4">Todos</h2>
-
-          {/* Add Todo */}
-          <Card className="mb-4">
-            <CardContent className="pt-4">
-              <TodoInput
-                onSubmit={handleCreateTodo}
-                defaultProjectId={projectId}
-                placeholder="Add a todo for this project..."
-              />
-            </CardContent>
-          </Card>
-
-          {/* Pending Todos */}
-          {pendingTodos.length > 0 && (
-            <div className="space-y-1 mb-6">
-              {pendingTodos.map((todo) => (
-                <TodoItem
-                  key={todo.id}
-                  todo={todo}
-                  onToggle={(id, completed) => toggleTodo.mutate({ id, is_completed: completed })}
-                  onDelete={(id) => deleteTodo.mutate(id)}
-                  showProjects={false}
-                />
-              ))}
+              {/* GitHub Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Github className="h-4 w-4" />
+                    GitHub Repository
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {project.github_ssh && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-medium">SSH</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
+                          {project.github_ssh}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 flex-shrink-0"
+                          onClick={() => copyToClipboard(project.github_ssh!, 'ssh')}
+                        >
+                          {copiedItem === 'ssh' ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {project.github_https && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-medium">HTTPS</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
+                          {project.github_https}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 flex-shrink-0"
+                          onClick={() => copyToClipboard(project.github_https!, 'https')}
+                        >
+                          {copiedItem === 'https' ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <a
+                          href={project.github_https.replace('.git', '')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  {!project.github_ssh && !project.github_https && (
+                    <p className="text-sm text-muted-foreground">No GitHub links configured</p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-          )}
 
-          {/* Completed Todos */}
-          {completedTodos.length > 0 && (
-            <div className="mt-4">
-              <p className="text-sm text-muted-foreground mb-2">
-                Completed ({completedTodos.length})
-              </p>
-              <div className="space-y-1">
-                {completedTodos.slice(0, 5).map((todo) => (
+            {/* Additional Links */}
+            {project.links && project.links.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <LinkIcon className="h-4 w-4" />
+                    Additional Links
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {project.links.map((link) => (
+                      <a
+                        key={link.id}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 p-2 rounded-lg border border-border hover:bg-muted transition-colors"
+                      >
+                        <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{link.label}</span>
+                        <ExternalLink className="h-3 w-3 ml-auto text-muted-foreground" />
+                      </a>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Notes Tab */}
+          <TabsContent value="notes">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Project Notes
+                  </CardTitle>
+                  <Button onClick={handleSaveNotes} disabled={isSavingNotes} size="sm">
+                    <Save className="mr-2 h-4 w-4" />
+                    {isSavingNotes ? 'Saving...' : 'Save Notes'}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  placeholder="Write your notes here... (supports markdown)"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={15}
+                  className="font-mono text-sm"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Use this space to keep notes, documentation, or any other information about this project.
+                </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Todos Tab */}
+          <TabsContent value="todos">
+            {/* Add Todo */}
+            <Card className="mb-4">
+              <CardContent className="pt-4">
+                <TodoInput
+                  onSubmit={handleCreateTodo}
+                  defaultProjectId={projectId}
+                  placeholder="Add a todo for this project..."
+                />
+              </CardContent>
+            </Card>
+
+            {/* Pending Todos */}
+            {pendingTodos.length > 0 && (
+              <div className="space-y-1 mb-6">
+                {pendingTodos.map((todo) => (
                   <TodoItem
                     key={todo.id}
                     todo={todo}
@@ -331,21 +442,41 @@ export default function ProjectDetailPage() {
                     showProjects={false}
                   />
                 ))}
-                {completedTodos.length > 5 && (
-                  <p className="text-sm text-muted-foreground text-center py-2">
-                    +{completedTodos.length - 5} more completed
-                  </p>
-                )}
               </div>
-            </div>
-          )}
+            )}
 
-          {pendingTodos.length === 0 && completedTodos.length === 0 && (
-            <p className="text-center text-muted-foreground py-8">
-              No todos yet. Add one above!
-            </p>
-          )}
-        </div>
+            {/* Completed Todos */}
+            {completedTodos.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm text-muted-foreground mb-2">
+                  Completed ({completedTodos.length})
+                </p>
+                <div className="space-y-1">
+                  {completedTodos.slice(0, 5).map((todo) => (
+                    <TodoItem
+                      key={todo.id}
+                      todo={todo}
+                      onToggle={(id, completed) => toggleTodo.mutate({ id, is_completed: completed })}
+                      onDelete={(id) => deleteTodo.mutate(id)}
+                      showProjects={false}
+                    />
+                  ))}
+                  {completedTodos.length > 5 && (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      +{completedTodos.length - 5} more completed
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {pendingTodos.length === 0 && completedTodos.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">
+                No todos yet. Add one above!
+              </p>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Edit Project Modal */}

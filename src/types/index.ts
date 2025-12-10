@@ -1,15 +1,24 @@
 // Project Types
 export type ProjectStatus = 'idea' | 'active' | 'paused' | 'completed' | 'archived';
 
+export interface ProjectLink {
+  id: string;
+  project_id: string;
+  label: string;
+  url: string;
+  created_at: string;
+}
+
 export interface Project {
   id: string;
   user_id: string;
   name: string;
   description: string | null;
-  notes_url: string | null;
+  notes: string | null; // Built-in notes content (markdown)
   mac_path: string | null;
   pc_path: string | null;
-  github_url: string | null;
+  github_ssh: string | null; // git@github.com:user/repo.git
+  github_https: string | null; // https://github.com/user/repo.git
   status: ProjectStatus;
   position_x: number;
   position_y: number;
@@ -19,6 +28,7 @@ export interface Project {
   updated_at: string;
   tags?: Tag[];
   todos?: Todo[];
+  links?: ProjectLink[]; // Additional custom links
 }
 
 // Tag Types
@@ -75,18 +85,22 @@ export interface ProjectRelation {
   created_at: string;
 }
 
-// Snippet Types
-export interface Snippet {
+// Keychain Types (API Keys & Secrets)
+export type KeyEnvironment = 'production' | 'development' | 'staging';
+
+export interface KeychainItem {
   id: string;
   user_id: string;
   project_id: string | null;
-  title: string;
-  language: string;
-  code: string;
-  description: string | null;
+  name: string;              // e.g., "OpenAI API Key"
+  key_value: string;         // The actual API key/secret
+  service: string | null;    // e.g., "OpenAI", "Stripe", "AWS"
+  environment: KeyEnvironment;
+  notes: string | null;
   is_favorite: boolean;
   created_at: string;
   updated_at: string;
+  project?: Project;         // Optional joined project
 }
 
 // User Profile
