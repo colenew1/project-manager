@@ -67,7 +67,8 @@ import {
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { KeychainGroup, KeychainEntry, KeyEnvironment, Project } from '@/types';
+import { KeychainGroup, KeyEnvironment, Project } from '@/types';
+import { useProjects } from '@/hooks/use-projects';
 
 // Common services for quick selection
 const commonServices = [
@@ -94,99 +95,22 @@ const environmentColors: Record<KeyEnvironment, string> = {
   staging: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
 };
 
-// Mock projects for linking
-const mockProjects: Project[] = [
-  {
-    id: '1',
-    user_id: '1',
-    name: 'Project Manager',
-    description: null,
-    notes: null,
-    mac_path: null,
-    pc_path: null,
-    github_url: null,
-    github_clone: null,
-    live_url: null,
-    status: 'active',
-    categories: [],
-    position_x: 0,
-    position_y: 0,
-    color: '#6366f1',
-    icon: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    user_id: '1',
-    name: 'Events App',
-    description: null,
-    notes: null,
-    mac_path: null,
-    pc_path: null,
-    github_url: null,
-    github_clone: null,
-    live_url: null,
-    status: 'active',
-    categories: [],
-    position_x: 0,
-    position_y: 0,
-    color: '#22c55e',
-    icon: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
-
-// Mock data - will be replaced with Supabase
-const mockGroups: KeychainGroup[] = [
-  {
-    id: '1',
-    user_id: '1',
-    name: 'Supabase - Project Manager',
-    service: 'Supabase',
-    environment: 'production',
-    notes: 'Main database for the project manager app',
-    is_favorite: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    entries: [
-      { id: '1a', group_id: '1', label: 'SUPABASE_URL', value: 'https://xxxxx.supabase.co', created_at: new Date().toISOString() },
-      { id: '1b', group_id: '1', label: 'SUPABASE_ANON_KEY', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', created_at: new Date().toISOString() },
-      { id: '1c', group_id: '1', label: 'SUPABASE_SERVICE_ROLE', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...secret', created_at: new Date().toISOString() },
-    ],
-    projects: [mockProjects[0]],
-  },
-  {
-    id: '2',
-    user_id: '1',
-    name: 'OpenAI',
-    service: 'OpenAI',
-    environment: 'production',
-    notes: null,
-    is_favorite: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    entries: [
-      { id: '2a', group_id: '2', label: 'OPENAI_API_KEY', value: 'sk-proj-1234567890abcdefghijklmnop', created_at: new Date().toISOString() },
-    ],
-    projects: [mockProjects[0], mockProjects[1]],
-  },
-];
-
 interface FormEntry {
   label: string;
   value: string;
 }
 
 export default function KeychainPage() {
-  const [groups, setGroups] = useState<KeychainGroup[]>(mockGroups);
-  const [projects] = useState<Project[]>(mockProjects);
+  // Fetch projects from Supabase
+  const { projects = [] } = useProjects();
+
+  // Local state for keychain groups (will connect to Supabase later)
+  const [groups, setGroups] = useState<KeychainGroup[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [visibleEntries, setVisibleEntries] = useState<Set<string>>(new Set());
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(mockGroups.map(g => g.id)));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   // Form state
   const [isFormOpen, setIsFormOpen] = useState(false);
