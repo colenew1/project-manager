@@ -34,7 +34,7 @@ import { useProject, useProjects } from '@/hooks/use-projects';
 import { useTodos } from '@/hooks/use-todos';
 import { cn } from '@/lib/utils';
 import { ProjectStatus, TodoPriority, Todo } from '@/types';
-import { detectPlatform, generateVSCodeUrl } from '@/lib/utils/platform';
+import { detectPlatform, generateCursorUrl } from '@/lib/utils/platform';
 import { toast } from 'sonner';
 
 const statusConfig: Record<ProjectStatus, { label: string; className: string }> = {
@@ -399,9 +399,9 @@ export default function ProjectDetailPage() {
                         )}
                       </Button>
                       {platform === 'mac' && (
-                        <a href={generateVSCodeUrl(project.mac_path)}>
+                        <a href={generateCursorUrl(project.mac_path)}>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <ExternalLink className="h-4 w-4" />
+                            <FolderOpen className="h-4 w-4" />
                           </Button>
                         </a>
                       )}
@@ -428,9 +428,9 @@ export default function ProjectDetailPage() {
                         )}
                       </Button>
                       {platform === 'windows' && (
-                        <a href={generateVSCodeUrl(project.pc_path)}>
+                        <a href={generateCursorUrl(project.pc_path)}>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <ExternalLink className="h-4 w-4" />
+                            <FolderOpen className="h-4 w-4" />
                           </Button>
                         </a>
                       )}

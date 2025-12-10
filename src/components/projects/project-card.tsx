@@ -14,6 +14,8 @@ import {
   Link as LinkIcon,
   StickyNote,
   Globe,
+  Terminal,
+  Check,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +30,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Project, ProjectStatus, ProjectCategory, Tag } from '@/types';
-import { detectPlatform, getRelevantPath, generateVSCodeUrl, formatPathForDisplay } from '@/lib/utils/platform';
+import { detectPlatform, getRelevantPath, generateCursorUrl, formatPathForDisplay } from '@/lib/utils/platform';
 
 const categoryLabels: Record<ProjectCategory, string> = {
   personal: 'Personal',
@@ -61,18 +63,21 @@ const statusConfig: Record<ProjectStatus, { label: string; className: string }> 
 
 export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
   const [platform] = useState(() => detectPlatform());
+  const [copied, setCopied] = useState(false);
   const relevantPath = getRelevantPath(project.mac_path, project.pc_path, platform);
   const todoCount = project.todos?.filter((t) => !t.is_completed).length || 0;
 
   const copyPath = () => {
     if (relevantPath) {
       navigator.clipboard.writeText(relevantPath);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
   return (
     <TooltipProvider>
-      <Card className="group relative overflow-hidden transition-all hover:shadow-lg">
+      <Card className="group relative overflow-hidden transition-all hover:shadow-lg h-full flex flex-col">
         {/* Color accent bar */}
         <div
           className="absolute left-0 top-0 h-1 w-full"
@@ -129,7 +134,7 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 flex-1 flex flex-col">
           {/* Description */}
           {project.description && (
             <p className="text-sm text-muted-foreground line-clamp-2">
@@ -179,25 +184,41 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
 
           {/* Path */}
           {relevantPath && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <a
-                  href={generateVSCodeUrl(relevantPath)}
-                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <FolderOpen className="h-3.5 w-3.5 flex-shrink-0" />
-                  <span className="truncate">{formatPathForDisplay(relevantPath, 35)}</span>
-                </a>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{relevantPath}</p>
-                <p className="text-xs text-muted-foreground mt-1">Click to open in VS Code</p>
-              </TooltipContent>
-            </Tooltip>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="truncate flex-1">{formatPathForDisplay(relevantPath, 30)}</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={copyPath}
+                    className="p-1 rounded hover:bg-muted transition-colors flex-shrink-0"
+                  >
+                    {copied ? (
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Terminal className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {copied ? 'Copied!' : 'Copy path for terminal'}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <a
+                    href={generateCursorUrl(relevantPath)}
+                    className="p-1 rounded hover:bg-muted transition-colors flex-shrink-0"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                  </a>
+                </TooltipTrigger>
+                <TooltipContent>Open in Cursor</TooltipContent>
+              </Tooltip>
+            </div>
           )}
 
           {/* Quick Links */}
-          <div className="flex items-center gap-2 pt-2 border-t border-border">
+          <div className="flex items-center gap-2 pt-2 border-t border-border mt-auto">
             {/* Live URL - prominent link to deployed site */}
             {project.live_url && (
               <Tooltip>

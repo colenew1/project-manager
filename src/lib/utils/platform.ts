@@ -66,7 +66,9 @@ export function generateVSCodeUrl(path: string): string {
  * Generate Cursor URL to open a folder/file
  */
 export function generateCursorUrl(path: string): string {
-  return `cursor://file/${encodeURIComponent(path)}`;
+  // Cursor uses the same URL scheme as VS Code
+  // Format: cursor://file/absolute/path
+  return `cursor://file/${path}`;
 }
 
 /**

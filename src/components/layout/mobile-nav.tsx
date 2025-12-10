@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FolderKanban, Map, CheckSquare, Key, Plus } from 'lucide-react';
+import { FolderKanban, Map, CheckSquare, StickyNote, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui-store';
 
@@ -10,7 +10,7 @@ const navItems = [
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/map', label: 'Map', icon: Map },
   { href: '/todos', label: 'Todos', icon: CheckSquare },
-  { href: '/keychain', label: 'Keychain', icon: Key },
+  { href: '/notes', label: 'Notes', icon: StickyNote },
 ];
 
 export function MobileNav() {

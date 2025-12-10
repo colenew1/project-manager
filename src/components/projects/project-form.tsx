@@ -74,6 +74,10 @@ const colorOptions = [
   '#3b82f6', // Blue
 ];
 
+// Base paths for auto-completion
+const MAC_BASE_PATH = '/Users/colenewman/Desktop/Code-Projects/';
+const PC_BASE_PATH = 'C:\\Users\\colenewman\\Code-Projects\\';
+
 const categoryOptions: { value: ProjectCategory; label: string }[] = [
   { value: 'personal', label: 'Personal' },
   { value: 'marketing', label: 'Marketing' },
@@ -308,22 +312,47 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
           {/* Paths */}
           <div className="space-y-4 rounded-lg border border-border p-4">
             <h4 className="font-medium">Directory Paths</h4>
+            <p className="text-xs text-muted-foreground">
+              Just type the folder name (e.g., "amp2025")
+            </p>
             <div className="grid gap-4 grid-cols-2">
               <div className="space-y-2 min-w-0">
-                <Label htmlFor="mac_path">Mac Path</Label>
+                <Label htmlFor="mac_folder">Mac Folder</Label>
                 <Input
-                  id="mac_path"
-                  placeholder="~/Projects/my-project"
-                  {...register('mac_path')}
+                  id="mac_folder"
+                  placeholder="my-project"
+                  defaultValue={project?.mac_path?.replace(MAC_BASE_PATH, '') || ''}
+                  onChange={(e) => {
+                    const folder = e.target.value.trim();
+                    if (folder) {
+                      setValue('mac_path', MAC_BASE_PATH + folder);
+                    } else {
+                      setValue('mac_path', '');
+                    }
+                  }}
                 />
+                <p className="text-xs text-muted-foreground truncate">
+                  {MAC_BASE_PATH}
+                </p>
               </div>
               <div className="space-y-2 min-w-0">
-                <Label htmlFor="pc_path">PC Path</Label>
+                <Label htmlFor="pc_folder">PC Folder</Label>
                 <Input
-                  id="pc_path"
-                  placeholder="C:\Projects\my-project"
-                  {...register('pc_path')}
+                  id="pc_folder"
+                  placeholder="my-project"
+                  defaultValue={project?.pc_path?.replace(PC_BASE_PATH, '') || ''}
+                  onChange={(e) => {
+                    const folder = e.target.value.trim();
+                    if (folder) {
+                      setValue('pc_path', PC_BASE_PATH + folder);
+                    } else {
+                      setValue('pc_path', '');
+                    }
+                  }}
                 />
+                <p className="text-xs text-muted-foreground truncate">
+                  {PC_BASE_PATH}
+                </p>
               </div>
             </div>
           </div>
