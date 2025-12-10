@@ -157,8 +157,11 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
   };
 
   const addLink = () => {
+    console.log('addLink called with:', { newLinkLabel, newLinkUrl });
     if (newLinkLabel.trim() && newLinkUrl.trim()) {
-      setAdditionalLinks([...additionalLinks, { label: newLinkLabel.trim(), url: newLinkUrl.trim() }]);
+      const newLinks = [...additionalLinks, { label: newLinkLabel.trim(), url: newLinkUrl.trim() }];
+      console.log('Setting additionalLinks to:', newLinks);
+      setAdditionalLinks(newLinks);
       setNewLinkLabel('');
       setNewLinkUrl('');
     }
@@ -171,7 +174,10 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
   const handleFormSubmit = async (data: ProjectFormData) => {
     setIsLoading(true);
     try {
-      await onSubmit({ ...data, color: selectedColor, categories: selectedCategories, additional_links: additionalLinks });
+      console.log('Form submitting with additionalLinks:', additionalLinks);
+      const submitData = { ...data, color: selectedColor, categories: selectedCategories, additional_links: additionalLinks };
+      console.log('Full submit data:', submitData);
+      await onSubmit(submitData);
       reset();
       setSelectedCategories([]);
       setAdditionalLinks([]);
@@ -185,7 +191,7 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg sm:max-w-xl md:max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>
             {mode === 'create' ? 'Create New Project' : 'Edit Project'}
@@ -301,8 +307,8 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
           {/* Paths */}
           <div className="space-y-4 rounded-lg border border-border p-4">
             <h4 className="font-medium">Directory Paths</h4>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
+            <div className="grid gap-4 grid-cols-2">
+              <div className="space-y-2 min-w-0">
                 <Label htmlFor="mac_path">Mac Path</Label>
                 <Input
                   id="mac_path"
@@ -310,7 +316,7 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
                   {...register('mac_path')}
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 <Label htmlFor="pc_path">PC Path</Label>
                 <Input
                   id="pc_path"
@@ -386,27 +392,30 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
             )}
 
             {/* Add new link */}
-            <div className="flex gap-2">
-              <Input
-                placeholder="Label (e.g., Docs)"
-                value={newLinkLabel}
-                onChange={(e) => setNewLinkLabel(e.target.value)}
-                className="w-[120px]"
-              />
-              <Input
-                placeholder="URL"
-                value={newLinkUrl}
-                onChange={(e) => setNewLinkUrl(e.target.value)}
-                className="flex-1"
-              />
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Label (e.g., Docs)"
+                  value={newLinkLabel}
+                  onChange={(e) => setNewLinkLabel(e.target.value)}
+                  className="w-24 flex-shrink-0"
+                />
+                <Input
+                  placeholder="URL"
+                  value={newLinkUrl}
+                  onChange={(e) => setNewLinkUrl(e.target.value)}
+                  className="flex-1 min-w-0"
+                />
+              </div>
               <Button
                 type="button"
-                variant="outline"
-                size="icon"
+                variant="default"
                 onClick={addLink}
                 disabled={!newLinkLabel.trim() || !newLinkUrl.trim()}
+                className="w-full"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 mr-1" />
+                Add Link
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">

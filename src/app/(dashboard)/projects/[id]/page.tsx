@@ -18,20 +18,22 @@ import {
   Save,
   FileText,
   Globe,
+  CheckSquare,
+  Settings,
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TodoInput } from '@/components/todos/todo-input';
 import { TodoItem } from '@/components/todos/todo-item';
+import { TodoEditForm } from '@/components/todos/todo-edit-form';
 import { ProjectForm } from '@/components/projects/project-form';
 import { useProject, useProjects } from '@/hooks/use-projects';
 import { useTodos } from '@/hooks/use-todos';
 import { cn } from '@/lib/utils';
-import { ProjectStatus, TodoPriority } from '@/types';
+import { ProjectStatus, TodoPriority, Todo } from '@/types';
 import { detectPlatform, generateVSCodeUrl } from '@/lib/utils/platform';
 import { toast } from 'sonner';
 
@@ -49,10 +51,11 @@ export default function ProjectDetailPage() {
   const projectId = params.id as string;
 
   const { data: project, isLoading: projectLoading } = useProject(projectId);
-  const { updateProject, deleteProject } = useProjects();
-  const { todos, createTodo, toggleTodo, deleteTodo } = useTodos(projectId);
+  const { updateProjectWithLinks, deleteProject } = useProjects();
+  const { todos, createTodo, updateTodo, toggleTodo, deleteTodo } = useTodos(projectId);
 
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [notesLoaded, setNotesLoaded] = useState(false);
@@ -66,6 +69,13 @@ export default function ProjectDetailPage() {
     setNotesLoaded(true);
   }
 
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const copyToClipboard = async (text: string, item: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedItem(item);
@@ -75,7 +85,14 @@ export default function ProjectDetailPage() {
 
   const handleUpdateProject = async (data: any) => {
     if (project) {
-      await updateProject.mutateAsync({ id: project.id, ...data });
+      console.log('handleUpdateProject received:', data);
+      const { additional_links, ...rest } = data;
+      console.log('Extracted additional_links:', additional_links);
+      await updateProjectWithLinks.mutateAsync({
+        id: project.id,
+        ...rest,
+        links: additional_links,
+      });
     }
   };
 
@@ -83,7 +100,7 @@ export default function ProjectDetailPage() {
     if (!project) return;
     setIsSavingNotes(true);
     try {
-      await updateProject.mutateAsync({ id: project.id, notes });
+      await updateProjectWithLinks.mutateAsync({ id: project.id, notes });
       toast.success('Notes saved');
     } catch (error) {
       toast.error('Failed to save notes');
@@ -109,6 +126,17 @@ export default function ProjectDetailPage() {
       ...data,
       project_ids: [projectId, ...data.project_ids.filter((id) => id !== projectId)],
     });
+  };
+
+  const handleUpdateTodo = async (data: {
+    id: string;
+    title: string;
+    description?: string;
+    due_date?: string | null;
+    priority: TodoPriority;
+  }) => {
+    await updateTodo.mutateAsync(data);
+    setEditingTodo(null);
   };
 
   if (projectLoading) {
@@ -203,133 +231,259 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
-        {/* Tabs */}
-        <Tabs defaultValue="details" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="notes">Notes</TabsTrigger>
-            <TabsTrigger value="todos">
-              Todos {pendingTodos.length > 0 && `(${pendingTodos.length})`}
-            </TabsTrigger>
-          </TabsList>
+        {/* Section Navigation */}
+        <div className="flex gap-2 mb-6 sticky top-0 bg-background py-2 z-10 border-b">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => scrollToSection('todos')}
+            className="gap-2"
+          >
+            <CheckSquare className="h-4 w-4" />
+            Todos {pendingTodos.length > 0 && `(${pendingTodos.length})`}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => scrollToSection('notes')}
+            className="gap-2"
+          >
+            <FileText className="h-4 w-4" />
+            Notes
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => scrollToSection('details')}
+            className="gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Details
+          </Button>
+        </div>
 
-          {/* Details Tab */}
-          <TabsContent value="details" className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Paths Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <FolderOpen className="h-4 w-4" />
-                    Directory Paths
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {project.mac_path && (
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium">Mac</p>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
-                          {project.mac_path}
-                        </code>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 flex-shrink-0"
-                          onClick={() => copyToClipboard(project.mac_path!, 'mac')}
-                        >
-                          {copiedItem === 'mac' ? (
-                            <Check className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </Button>
-                        {platform === 'mac' && (
-                          <a href={generateVSCodeUrl(project.mac_path)}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {project.pc_path && (
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium">PC</p>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
-                          {project.pc_path}
-                        </code>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 flex-shrink-0"
-                          onClick={() => copyToClipboard(project.pc_path!, 'pc')}
-                        >
-                          {copiedItem === 'pc' ? (
-                            <Check className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </Button>
-                        {platform === 'windows' && (
-                          <a href={generateVSCodeUrl(project.pc_path)}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {!project.mac_path && !project.pc_path && (
-                    <p className="text-sm text-muted-foreground">No paths configured</p>
-                  )}
-                </CardContent>
-              </Card>
+        {/* ==================== TODOS SECTION ==================== */}
+        <section id="todos" className="mb-12 scroll-mt-16">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <CheckSquare className="h-5 w-5" />
+            Todos
+          </h2>
 
-              {/* Live URL Card */}
-              {project.live_url && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-green-600" />
-                      Live Site
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
+          {/* Add Todo */}
+          <Card className="mb-4">
+            <CardContent className="pt-4">
+              <TodoInput
+                onSubmit={handleCreateTodo}
+                defaultProjectId={projectId}
+                placeholder="Add a todo for this project..."
+              />
+            </CardContent>
+          </Card>
+
+          {/* Pending Todos */}
+          {pendingTodos.length > 0 && (
+            <div className="space-y-1 mb-6">
+              {pendingTodos.map((todo) => (
+                <TodoItem
+                  key={todo.id}
+                  todo={todo}
+                  onToggle={(id, completed) => toggleTodo.mutate({ id, is_completed: completed })}
+                  onEdit={(todo) => setEditingTodo(todo)}
+                  onDelete={(id) => deleteTodo.mutate(id)}
+                  showProjects={false}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Completed Todos */}
+          {completedTodos.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm text-muted-foreground mb-2">
+                Completed ({completedTodos.length})
+              </p>
+              <div className="space-y-1">
+                {completedTodos.slice(0, 5).map((todo) => (
+                  <TodoItem
+                    key={todo.id}
+                    todo={todo}
+                    onToggle={(id, completed) => toggleTodo.mutate({ id, is_completed: completed })}
+                    onEdit={(todo) => setEditingTodo(todo)}
+                    onDelete={(id) => deleteTodo.mutate(id)}
+                    showProjects={false}
+                  />
+                ))}
+                {completedTodos.length > 5 && (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    +{completedTodos.length - 5} more completed
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {pendingTodos.length === 0 && completedTodos.length === 0 && (
+            <p className="text-center text-muted-foreground py-8">
+              No todos yet. Add one above!
+            </p>
+          )}
+        </section>
+
+        {/* ==================== NOTES SECTION ==================== */}
+        <section id="notes" className="mb-12 scroll-mt-16">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Notes
+          </h2>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">Project Notes</CardTitle>
+                <Button onClick={handleSaveNotes} disabled={isSavingNotes} size="sm">
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSavingNotes ? 'Saving...' : 'Save Notes'}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                placeholder="Write your notes here... (supports markdown)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={15}
+                className="font-mono text-sm"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Use this space to keep notes, documentation, or any other information about this project.
+              </p>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* ==================== DETAILS SECTION ==================== */}
+        <section id="details" className="mb-12 scroll-mt-16">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Details
+          </h2>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Paths Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4" />
+                  Directory Paths
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {project.mac_path && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium">Mac</p>
                     <div className="flex items-center gap-2">
                       <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
-                        {project.live_url}
+                        {project.mac_path}
                       </code>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 flex-shrink-0"
-                        onClick={() => copyToClipboard(project.live_url!, 'live')}
+                        onClick={() => copyToClipboard(project.mac_path!, 'mac')}
                       >
-                        {copiedItem === 'live' ? (
+                        {copiedItem === 'mac' ? (
                           <Check className="h-4 w-4 text-green-500" />
                         ) : (
                           <Copy className="h-4 w-4" />
                         )}
                       </Button>
-                      <a
-                        href={project.live_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </a>
+                      {platform === 'mac' && (
+                        <a href={generateVSCodeUrl(project.mac_path)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </a>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  </div>
+                )}
+                {project.pc_path && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium">PC</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
+                        {project.pc_path}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 flex-shrink-0"
+                        onClick={() => copyToClipboard(project.pc_path!, 'pc')}
+                      >
+                        {copiedItem === 'pc' ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                      {platform === 'windows' && (
+                        <a href={generateVSCodeUrl(project.pc_path)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {!project.mac_path && !project.pc_path && (
+                  <p className="text-sm text-muted-foreground">No paths configured</p>
+                )}
+              </CardContent>
+            </Card>
 
-              {/* GitHub Card */}
+            {/* Live URL Card */}
+            {project.live_url && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-green-600" />
+                    Live Site
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
+                      {project.live_url}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 flex-shrink-0"
+                      onClick={() => copyToClipboard(project.live_url!, 'live')}
+                    >
+                      {copiedItem === 'live' ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <a
+                      href={project.live_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </a>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* GitHub Card */}
+            {(project.github_url || project.github_clone) && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
@@ -391,24 +545,21 @@ export default function ProjectDetailPage() {
                       </div>
                     </div>
                   )}
-                  {!project.github_url && !project.github_clone && (
-                    <p className="text-sm text-muted-foreground">No GitHub links configured</p>
-                  )}
                 </CardContent>
               </Card>
-            </div>
+            )}
 
-            {/* Additional Links */}
-            {project.links && project.links.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <LinkIcon className="h-4 w-4" />
-                    Additional Links
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-2 sm:grid-cols-2">
+            {/* Additional Links Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <LinkIcon className="h-4 w-4" />
+                  Additional Links
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {project.links && project.links.length > 0 ? (
+                  <div className="space-y-2">
                     {project.links.map((link) => (
                       <a
                         key={link.id}
@@ -418,106 +569,18 @@ export default function ProjectDetailPage() {
                         className="flex items-center gap-2 p-2 rounded-lg border border-border hover:bg-muted transition-colors"
                       >
                         <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{link.label}</span>
+                        <span className="font-medium text-sm">{link.label}</span>
                         <ExternalLink className="h-3 w-3 ml-auto text-muted-foreground" />
                       </a>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* Notes Tab */}
-          <TabsContent value="notes">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Project Notes
-                  </CardTitle>
-                  <Button onClick={handleSaveNotes} disabled={isSavingNotes} size="sm">
-                    <Save className="mr-2 h-4 w-4" />
-                    {isSavingNotes ? 'Saving...' : 'Save Notes'}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  placeholder="Write your notes here... (supports markdown)"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={15}
-                  className="font-mono text-sm"
-                />
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Use this space to keep notes, documentation, or any other information about this project.
-                </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No additional links configured</p>
+                )}
               </CardContent>
             </Card>
-          </TabsContent>
-
-          {/* Todos Tab */}
-          <TabsContent value="todos">
-            {/* Add Todo */}
-            <Card className="mb-4">
-              <CardContent className="pt-4">
-                <TodoInput
-                  onSubmit={handleCreateTodo}
-                  defaultProjectId={projectId}
-                  placeholder="Add a todo for this project..."
-                />
-              </CardContent>
-            </Card>
-
-            {/* Pending Todos */}
-            {pendingTodos.length > 0 && (
-              <div className="space-y-1 mb-6">
-                {pendingTodos.map((todo) => (
-                  <TodoItem
-                    key={todo.id}
-                    todo={todo}
-                    onToggle={(id, completed) => toggleTodo.mutate({ id, is_completed: completed })}
-                    onDelete={(id) => deleteTodo.mutate(id)}
-                    showProjects={false}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Completed Todos */}
-            {completedTodos.length > 0 && (
-              <div className="mt-4">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Completed ({completedTodos.length})
-                </p>
-                <div className="space-y-1">
-                  {completedTodos.slice(0, 5).map((todo) => (
-                    <TodoItem
-                      key={todo.id}
-                      todo={todo}
-                      onToggle={(id, completed) => toggleTodo.mutate({ id, is_completed: completed })}
-                      onDelete={(id) => deleteTodo.mutate(id)}
-                      showProjects={false}
-                    />
-                  ))}
-                  {completedTodos.length > 5 && (
-                    <p className="text-sm text-muted-foreground text-center py-2">
-                      +{completedTodos.length - 5} more completed
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {pendingTodos.length === 0 && completedTodos.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">
-                No todos yet. Add one above!
-              </p>
-            )}
-          </TabsContent>
-        </Tabs>
+          </div>
+        </section>
       </div>
 
       {/* Edit Project Modal */}
@@ -527,6 +590,14 @@ export default function ProjectDetailPage() {
         onSubmit={handleUpdateProject}
         project={project}
         mode="edit"
+      />
+
+      {/* Edit Todo Modal */}
+      <TodoEditForm
+        open={!!editingTodo}
+        onClose={() => setEditingTodo(null)}
+        onSubmit={handleUpdateTodo}
+        todo={editingTodo}
       />
     </>
   );

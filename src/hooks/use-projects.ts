@@ -184,6 +184,8 @@ export function useProjects() {
       links,
       ...updates
     }: Partial<Project> & { id: string; links?: { label: string; url: string }[] }) => {
+      console.log('updateProjectWithLinks called with:', { id, links, updates });
+
       // Update project
       const { data, error } = await supabase
         .from('projects')
@@ -192,30 +194,49 @@ export function useProjects() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating project:', error);
+        throw error;
+      }
 
       // Handle links if provided
       if (links !== undefined) {
+        console.log('Processing links:', links);
+
         // Delete existing links
-        await supabase.from('project_links').delete().eq('project_id', id);
+        const { error: deleteError } = await supabase.from('project_links').delete().eq('project_id', id);
+        if (deleteError) {
+          console.error('Error deleting links:', deleteError);
+          throw deleteError;
+        }
 
         // Insert new links
         if (links.length > 0) {
-          const { error: linkError } = await supabase.from('project_links').insert(
-            links.map((link) => ({
-              project_id: id,
-              label: link.label,
-              url: link.url,
-            }))
-          );
-          if (linkError) throw linkError;
+          const linksToInsert = links.map((link) => ({
+            project_id: id,
+            label: link.label,
+            url: link.url,
+          }));
+          console.log('Inserting new links:', linksToInsert);
+          const { data: insertedLinks, error: linkError } = await supabase
+            .from('project_links')
+            .insert(linksToInsert)
+            .select();
+
+          console.log('Insert result:', { insertedLinks, linkError });
+
+          if (linkError) {
+            console.error('Error inserting links:', linkError);
+            throw linkError;
+          }
         }
       }
 
       return data as Project;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['projects', data.id] });
       toast.success('Project updated successfully');
     },
     onError: (error) => {

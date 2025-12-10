@@ -15,14 +15,19 @@ import {
   Trash2,
   MoreHorizontal,
   Shield,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Folder,
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -55,19 +60,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { KeychainItem, KeyEnvironment } from '@/types';
+import { KeychainGroup, KeychainEntry, KeyEnvironment, Project } from '@/types';
 
 // Common services for quick selection
 const commonServices = [
+  'Supabase',
   'OpenAI',
   'Anthropic',
   'Stripe',
   'AWS',
   'Google Cloud',
   'Firebase',
-  'Supabase',
   'Vercel',
   'GitHub',
   'Twilio',
@@ -84,173 +94,293 @@ const environmentColors: Record<KeyEnvironment, string> = {
   staging: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
 };
 
-// Mock data - will be replaced with Supabase
-const mockKeys: KeychainItem[] = [
+// Mock projects for linking
+const mockProjects: Project[] = [
   {
     id: '1',
     user_id: '1',
-    project_id: null,
-    name: 'OpenAI API Key',
-    key_value: 'sk-1234567890abcdefghijklmnop',
-    service: 'OpenAI',
-    environment: 'production',
-    notes: 'Main production key - $20/month limit',
-    is_favorite: true,
+    name: 'Project Manager',
+    description: null,
+    notes: null,
+    mac_path: null,
+    pc_path: null,
+    github_url: null,
+    github_clone: null,
+    live_url: null,
+    status: 'active',
+    categories: [],
+    position_x: 0,
+    position_y: 0,
+    color: '#6366f1',
+    icon: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
   {
     id: '2',
     user_id: '1',
-    project_id: null,
-    name: 'Stripe Test Key',
-    key_value: 'sk_test_abcdefghijklmnop123456',
-    service: 'Stripe',
-    environment: 'development',
+    name: 'Events App',
+    description: null,
     notes: null,
-    is_favorite: false,
+    mac_path: null,
+    pc_path: null,
+    github_url: null,
+    github_clone: null,
+    live_url: null,
+    status: 'active',
+    categories: [],
+    position_x: 0,
+    position_y: 0,
+    color: '#22c55e',
+    icon: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
 ];
 
+// Mock data - will be replaced with Supabase
+const mockGroups: KeychainGroup[] = [
+  {
+    id: '1',
+    user_id: '1',
+    name: 'Supabase - Project Manager',
+    service: 'Supabase',
+    environment: 'production',
+    notes: 'Main database for the project manager app',
+    is_favorite: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    entries: [
+      { id: '1a', group_id: '1', label: 'SUPABASE_URL', value: 'https://xxxxx.supabase.co', created_at: new Date().toISOString() },
+      { id: '1b', group_id: '1', label: 'SUPABASE_ANON_KEY', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', created_at: new Date().toISOString() },
+      { id: '1c', group_id: '1', label: 'SUPABASE_SERVICE_ROLE', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...secret', created_at: new Date().toISOString() },
+    ],
+    projects: [mockProjects[0]],
+  },
+  {
+    id: '2',
+    user_id: '1',
+    name: 'OpenAI',
+    service: 'OpenAI',
+    environment: 'production',
+    notes: null,
+    is_favorite: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    entries: [
+      { id: '2a', group_id: '2', label: 'OPENAI_API_KEY', value: 'sk-proj-1234567890abcdefghijklmnop', created_at: new Date().toISOString() },
+    ],
+    projects: [mockProjects[0], mockProjects[1]],
+  },
+];
+
+interface FormEntry {
+  label: string;
+  value: string;
+}
+
 export default function KeychainPage() {
-  const [keys, setKeys] = useState<KeychainItem[]>(mockKeys);
+  const [groups, setGroups] = useState<KeychainGroup[]>(mockGroups);
+  const [projects] = useState<Project[]>(mockProjects);
   const [searchQuery, setSearchQuery] = useState('');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
+  const [visibleEntries, setVisibleEntries] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(mockGroups.map(g => g.id)));
 
   // Form state
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingKey, setEditingKey] = useState<KeychainItem | null>(null);
-  const [deleteKey, setDeleteKey] = useState<KeychainItem | null>(null);
+  const [editingGroup, setEditingGroup] = useState<KeychainGroup | null>(null);
+  const [deleteGroup, setDeleteGroup] = useState<KeychainGroup | null>(null);
 
   // Form fields
   const [formName, setFormName] = useState('');
-  const [formKeyValue, setFormKeyValue] = useState('');
   const [formService, setFormService] = useState('');
   const [formEnvironment, setFormEnvironment] = useState<KeyEnvironment>('production');
   const [formNotes, setFormNotes] = useState('');
+  const [formEntries, setFormEntries] = useState<FormEntry[]>([{ label: '', value: '' }]);
+  const [formProjectIds, setFormProjectIds] = useState<string[]>([]);
 
-  // Filter keys
-  const filteredKeys = keys.filter((key) => {
-    if (serviceFilter !== 'all' && key.service !== serviceFilter) return false;
+  // Filter groups
+  const filteredGroups = groups.filter((group) => {
+    if (serviceFilter !== 'all' && group.service !== serviceFilter) return false;
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
-        key.name.toLowerCase().includes(query) ||
-        key.service?.toLowerCase().includes(query) ||
-        key.notes?.toLowerCase().includes(query)
+        group.name.toLowerCase().includes(query) ||
+        group.service?.toLowerCase().includes(query) ||
+        group.notes?.toLowerCase().includes(query) ||
+        group.entries?.some(e => e.label.toLowerCase().includes(query))
       );
     }
     return true;
   });
 
-  // Get unique services from keys
-  const usedServices = [...new Set(keys.map((k) => k.service).filter(Boolean))];
+  // Get unique services from groups
+  const usedServices = [...new Set(groups.map((g) => g.service).filter(Boolean))];
 
-  const copyKey = async (id: string, keyValue: string) => {
-    await navigator.clipboard.writeText(keyValue);
-    setCopiedId(id);
-    toast.success('Key copied to clipboard');
+  const copyValue = async (entryId: string, value: string) => {
+    await navigator.clipboard.writeText(value);
+    setCopiedId(entryId);
+    toast.success('Copied to clipboard');
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const toggleKeyVisibility = (id: string) => {
-    setVisibleKeys((prev) => {
+  const toggleEntryVisibility = (entryId: string) => {
+    setVisibleEntries((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
+      if (next.has(entryId)) {
+        next.delete(entryId);
       } else {
-        next.add(id);
+        next.add(entryId);
       }
       return next;
     });
   };
 
-  const maskKey = (key: string) => {
-    if (key.length <= 8) return '••••••••';
-    return key.slice(0, 4) + '••••••••' + key.slice(-4);
+  const toggleGroupExpanded = (groupId: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
+  const maskValue = (value: string) => {
+    if (value.length <= 8) return '••••••••';
+    return value.slice(0, 4) + '••••••••' + value.slice(-4);
   };
 
   const toggleFavorite = (id: string) => {
-    setKeys((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, is_favorite: !k.is_favorite } : k))
+    setGroups((prev) =>
+      prev.map((g) => (g.id === id ? { ...g, is_favorite: !g.is_favorite } : g))
     );
   };
 
-  const openEditForm = (key: KeychainItem) => {
-    setEditingKey(key);
-    setFormName(key.name);
-    setFormKeyValue(key.key_value);
-    setFormService(key.service || '');
-    setFormEnvironment(key.environment);
-    setFormNotes(key.notes || '');
+  const openEditForm = (group: KeychainGroup) => {
+    setEditingGroup(group);
+    setFormName(group.name);
+    setFormService(group.service || '');
+    setFormEnvironment(group.environment);
+    setFormNotes(group.notes || '');
+    setFormEntries(group.entries?.map(e => ({ label: e.label, value: e.value })) || [{ label: '', value: '' }]);
+    setFormProjectIds(group.projects?.map(p => p.id) || []);
     setIsFormOpen(true);
   };
 
   const openNewForm = () => {
-    setEditingKey(null);
+    setEditingGroup(null);
     setFormName('');
-    setFormKeyValue('');
     setFormService('');
     setFormEnvironment('production');
     setFormNotes('');
+    setFormEntries([{ label: '', value: '' }]);
+    setFormProjectIds([]);
     setIsFormOpen(true);
   };
 
+  const addEntry = () => {
+    setFormEntries([...formEntries, { label: '', value: '' }]);
+  };
+
+  const removeEntry = (index: number) => {
+    if (formEntries.length > 1) {
+      setFormEntries(formEntries.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateEntry = (index: number, field: 'label' | 'value', value: string) => {
+    setFormEntries(formEntries.map((entry, i) =>
+      i === index ? { ...entry, [field]: value } : entry
+    ));
+  };
+
+  const toggleProjectLink = (projectId: string) => {
+    setFormProjectIds(prev =>
+      prev.includes(projectId)
+        ? prev.filter(id => id !== projectId)
+        : [...prev, projectId]
+    );
+  };
+
   const handleSubmit = () => {
-    if (!formName.trim() || !formKeyValue.trim()) {
-      toast.error('Name and key are required');
+    if (!formName.trim()) {
+      toast.error('Name is required');
       return;
     }
 
-    if (editingKey) {
+    const validEntries = formEntries.filter(e => e.label.trim() && e.value.trim());
+    if (validEntries.length === 0) {
+      toast.error('At least one key-value pair is required');
+      return;
+    }
+
+    const linkedProjects = projects.filter(p => formProjectIds.includes(p.id));
+
+    if (editingGroup) {
       // Update existing
-      setKeys((prev) =>
-        prev.map((k) =>
-          k.id === editingKey.id
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === editingGroup.id
             ? {
-                ...k,
+                ...g,
                 name: formName,
-                key_value: formKeyValue,
                 service: formService || null,
                 environment: formEnvironment,
                 notes: formNotes || null,
+                entries: validEntries.map((e, i) => ({
+                  id: `${editingGroup.id}-${i}`,
+                  group_id: editingGroup.id,
+                  label: e.label,
+                  value: e.value,
+                  created_at: new Date().toISOString(),
+                })),
+                projects: linkedProjects,
                 updated_at: new Date().toISOString(),
               }
-            : k
+            : g
         )
       );
-      toast.success('Key updated');
+      toast.success('Keychain group updated');
     } else {
       // Create new
-      const newKey: KeychainItem = {
-        id: Math.random().toString(36).slice(2),
+      const newId = Math.random().toString(36).slice(2);
+      const newGroup: KeychainGroup = {
+        id: newId,
         user_id: '1',
-        project_id: null,
         name: formName,
-        key_value: formKeyValue,
         service: formService || null,
         environment: formEnvironment,
         notes: formNotes || null,
         is_favorite: false,
+        entries: validEntries.map((e, i) => ({
+          id: `${newId}-${i}`,
+          group_id: newId,
+          label: e.label,
+          value: e.value,
+          created_at: new Date().toISOString(),
+        })),
+        projects: linkedProjects,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      setKeys((prev) => [newKey, ...prev]);
-      toast.success('Key added to keychain');
+      setGroups((prev) => [newGroup, ...prev]);
+      setExpandedGroups(prev => new Set([...prev, newId]));
+      toast.success('Keychain group created');
     }
 
     setIsFormOpen(false);
   };
 
   const handleDelete = () => {
-    if (deleteKey) {
-      setKeys((prev) => prev.filter((k) => k.id !== deleteKey.id));
-      toast.success('Key deleted');
-      setDeleteKey(null);
+    if (deleteGroup) {
+      setGroups((prev) => prev.filter((g) => g.id !== deleteGroup.id));
+      toast.success('Keychain group deleted');
+      setDeleteGroup(null);
     }
   };
 
@@ -258,7 +388,7 @@ export default function KeychainPage() {
     <>
       <Header title="Keychain" />
 
-      <div className="p-4 md:p-6">
+      <div className="p-4 md:p-6 max-w-4xl mx-auto">
         {/* Actions Bar */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2 flex-1 max-w-md">
@@ -288,161 +418,208 @@ export default function KeychainPage() {
 
           <Button onClick={openNewForm}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Key
+            Add Keys
           </Button>
         </div>
 
         {/* Security Notice */}
         <Card className="mb-6 bg-amber-500/5 border-amber-500/20">
-          <CardContent className="py-4">
+          <CardContent className="py-3">
             <p className="text-sm text-amber-600 dark:text-amber-400">
               <Shield className="inline-block mr-2 h-4 w-4" />
-              <strong>Security Note:</strong> Keys are stored in your Supabase database. For maximum security, consider using a dedicated password manager for highly sensitive production keys.
+              <strong>Security:</strong> Keys are stored in your Supabase database with row-level security.
             </p>
           </CardContent>
         </Card>
 
-        {/* Keys List */}
-        {filteredKeys.length === 0 ? (
+        {/* Groups List */}
+        {filteredGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Key className="mb-4 h-12 w-12 text-muted-foreground" />
             <h3 className="mb-2 text-lg font-semibold">No keys found</h3>
             <p className="text-muted-foreground mb-4">
               {searchQuery
                 ? 'Try a different search term.'
-                : 'Add your first API key to get started.'}
+                : 'Add your first API keys to get started.'}
             </p>
             {!searchQuery && (
               <Button onClick={openNewForm}>
                 <Plus className="mr-2 h-4 w-4" />
-                Add Your First Key
+                Add Your First Keys
               </Button>
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            {/* Favorites first */}
-            {filteredKeys
+          <div className="space-y-4">
+            {filteredGroups
               .sort((a, b) => (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0))
-              .map((key) => (
-                <Card key={key.id} className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      {/* Left side - Key info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold truncate">{key.name}</h3>
-                          {key.is_favorite && (
-                            <Star className="h-4 w-4 fill-yellow-500 text-yellow-500 flex-shrink-0" />
+              .map((group) => (
+                <Card key={group.id} className="overflow-hidden">
+                  <Collapsible
+                    open={expandedGroups.has(group.id)}
+                    onOpenChange={() => toggleGroupExpanded(group.id)}
+                  >
+                    <CardHeader className="p-4 pb-0">
+                      <div className="flex items-start justify-between gap-4">
+                        <CollapsibleTrigger className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                          {expandedGroups.has(group.id) ? (
+                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
                           )}
-                        </div>
+                          <div className="text-left">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold">{group.name}</h3>
+                              {group.is_favorite && (
+                                <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              {group.service && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {group.service}
+                                </Badge>
+                              )}
+                              <Badge
+                                variant="outline"
+                                className={cn('text-xs', environmentColors[group.environment])}
+                              >
+                                {group.environment}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {group.entries?.length || 0} key{(group.entries?.length || 0) !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          </div>
+                        </CollapsibleTrigger>
 
-                        <div className="flex flex-wrap items-center gap-2 mb-3">
-                          {key.service && (
-                            <Badge variant="secondary" className="text-xs">
-                              {key.service}
-                            </Badge>
-                          )}
-                          <Badge
-                            variant="outline"
-                            className={cn('text-xs', environmentColors[key.environment])}
-                          >
-                            {key.environment}
-                          </Badge>
-                        </div>
-
-                        {/* Key value display */}
-                        <div className="flex items-center gap-2 bg-muted rounded-lg p-2">
-                          <code className="flex-1 text-sm font-mono truncate">
-                            {visibleKeys.has(key.id) ? key.key_value : maskKey(key.key_value)}
-                          </code>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 flex-shrink-0"
-                            onClick={() => toggleKeyVisibility(key.id)}
-                          >
-                            {visibleKeys.has(key.id) ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 flex-shrink-0"
-                            onClick={() => copyKey(key.id, key.key_value)}
-                          >
-                            {copiedId === key.id ? (
-                              <Check className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-
-                        {key.notes && (
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            {key.notes}
-                          </p>
-                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => toggleFavorite(group.id)}>
+                              {group.is_favorite ? (
+                                <>
+                                  <StarOff className="mr-2 h-4 w-4" />
+                                  Remove Favorite
+                                </>
+                              ) : (
+                                <>
+                                  <Star className="mr-2 h-4 w-4" />
+                                  Add to Favorites
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditForm(group)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setDeleteGroup(group)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
 
-                      {/* Right side - Actions */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => toggleFavorite(key.id)}>
-                            {key.is_favorite ? (
-                              <>
-                                <StarOff className="mr-2 h-4 w-4" />
-                                Remove Favorite
-                              </>
-                            ) : (
-                              <>
-                                <Star className="mr-2 h-4 w-4" />
-                                Add to Favorites
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openEditForm(key)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => setDeleteKey(key)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardContent>
+                      {/* Linked Projects */}
+                      {group.projects && group.projects.length > 0 && (
+                        <div className="flex items-center gap-2 mt-2 ml-6">
+                          <Folder className="h-3 w-3 text-muted-foreground" />
+                          <div className="flex flex-wrap gap-1">
+                            {group.projects.map((project) => (
+                              <Badge
+                                key={project.id}
+                                variant="outline"
+                                className="text-xs"
+                                style={{
+                                  borderColor: `${project.color}60`,
+                                  color: project.color,
+                                }}
+                              >
+                                {project.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardHeader>
+
+                    <CollapsibleContent>
+                      <CardContent className="p-4 pt-3">
+                        {/* Entries */}
+                        <div className="space-y-2">
+                          {group.entries?.map((entry) => (
+                            <div
+                              key={entry.id}
+                              className="flex items-center gap-2 bg-muted rounded-lg p-2"
+                            >
+                              <code className="text-xs font-mono text-muted-foreground min-w-[140px] truncate">
+                                {entry.label}
+                              </code>
+                              <code className="flex-1 text-sm font-mono truncate">
+                                {visibleEntries.has(entry.id) ? entry.value : maskValue(entry.value)}
+                              </code>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 flex-shrink-0"
+                                onClick={() => toggleEntryVisibility(entry.id)}
+                              >
+                                {visibleEntries.has(entry.id) ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 flex-shrink-0"
+                                onClick={() => copyValue(entry.id, entry.value)}
+                              >
+                                {copiedId === entry.id ? (
+                                  <Check className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+
+                        {group.notes && (
+                          <p className="mt-3 text-sm text-muted-foreground">
+                            {group.notes}
+                          </p>
+                        )}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </Card>
               ))}
           </div>
         )}
       </div>
 
-      {/* Add/Edit Key Dialog */}
+      {/* Add/Edit Group Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingKey ? 'Edit Key' : 'Add New Key'}
+              {editingGroup ? 'Edit Keys' : 'Add New Keys'}
             </DialogTitle>
             <DialogDescription>
-              {editingKey
-                ? 'Update your API key details.'
-                : 'Store a new API key or secret in your keychain.'}
+              {editingGroup
+                ? 'Update your API keys and settings.'
+                : 'Add a group of related API keys (e.g., all Supabase keys for a project).'}
             </DialogDescription>
           </DialogHeader>
 
@@ -451,20 +628,9 @@ export default function KeychainPage() {
               <Label htmlFor="name">Name *</Label>
               <Input
                 id="name"
-                placeholder="e.g., OpenAI API Key"
+                placeholder="e.g., Supabase - Project Manager"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="key">Key / Secret *</Label>
-              <Input
-                id="key"
-                placeholder="sk-..."
-                value={formKeyValue}
-                onChange={(e) => setFormKeyValue(e.target.value)}
-                className="font-mono"
               />
             </div>
 
@@ -503,11 +669,88 @@ export default function KeychainPage() {
               </div>
             </div>
 
+            {/* Key-Value Entries */}
+            <div className="space-y-2">
+              <Label>Keys *</Label>
+              <div className="space-y-2">
+                {formEntries.map((entry, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input
+                      placeholder="VARIABLE_NAME"
+                      value={entry.label}
+                      onChange={(e) => updateEntry(index, 'label', e.target.value)}
+                      className="w-[140px] font-mono text-sm"
+                    />
+                    <Input
+                      placeholder="Value"
+                      value={entry.value}
+                      onChange={(e) => updateEntry(index, 'value', e.target.value)}
+                      className="flex-1 font-mono text-sm"
+                    />
+                    {formEntries.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeEntry(index)}
+                        className="flex-shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addEntry}
+                className="w-full"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Another Key
+              </Button>
+            </div>
+
+            {/* Link to Projects */}
+            <div className="space-y-2">
+              <Label>Link to Projects</Label>
+              <div className="space-y-2 max-h-[150px] overflow-y-auto rounded-lg border border-border p-2">
+                {projects.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2 text-center">No projects available</p>
+                ) : (
+                  projects.map((project) => (
+                    <div key={project.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`project-${project.id}`}
+                        checked={formProjectIds.includes(project.id)}
+                        onCheckedChange={() => toggleProjectLink(project.id)}
+                      />
+                      <label
+                        htmlFor={`project-${project.id}`}
+                        className="flex items-center gap-2 text-sm cursor-pointer"
+                      >
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: project.color }}
+                        />
+                        {project.name}
+                      </label>
+                    </div>
+                  ))
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Select projects that use these keys
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
               <Textarea
                 id="notes"
-                placeholder="Any additional notes about this key..."
+                placeholder="Any additional notes..."
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
                 rows={2}
@@ -520,19 +763,19 @@ export default function KeychainPage() {
               Cancel
             </Button>
             <Button onClick={handleSubmit}>
-              {editingKey ? 'Save Changes' : 'Add Key'}
+              {editingGroup ? 'Save Changes' : 'Add Keys'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteKey} onOpenChange={() => setDeleteKey(null)}>
+      <AlertDialog open={!!deleteGroup} onOpenChange={() => setDeleteGroup(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Key</AlertDialogTitle>
+            <AlertDialogTitle>Delete Keychain Group</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deleteKey?.name}&quot;? This action cannot be undone.
+              Are you sure you want to delete &quot;{deleteGroup?.name}&quot; and all its keys? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

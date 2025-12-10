@@ -103,19 +103,51 @@ export interface ProjectRelation {
 // Keychain Types (API Keys & Secrets)
 export type KeyEnvironment = 'production' | 'development' | 'staging';
 
-export interface KeychainItem {
+// A single key-value pair within a keychain group
+export interface KeychainEntry {
+  id: string;
+  group_id: string;
+  label: string;             // e.g., "SUPABASE_URL", "SUPABASE_ANON_KEY"
+  value: string;             // The actual value
+  created_at: string;
+}
+
+// A group of related keys (e.g., all Supabase keys for a project)
+export interface KeychainGroup {
   id: string;
   user_id: string;
-  project_id: string | null;
-  name: string;              // e.g., "OpenAI API Key"
-  key_value: string;         // The actual API key/secret
-  service: string | null;    // e.g., "OpenAI", "Stripe", "AWS"
+  name: string;              // e.g., "Supabase - Project Manager"
+  service: string | null;    // e.g., "Supabase", "Stripe", "AWS"
   environment: KeyEnvironment;
   notes: string | null;
   is_favorite: boolean;
   created_at: string;
   updated_at: string;
-  project?: Project;         // Optional joined project
+  entries?: KeychainEntry[]; // The key-value pairs in this group
+  projects?: Project[];      // Linked projects (many-to-many)
+}
+
+// Junction table for keychain_group <-> projects
+export interface KeychainGroupProject {
+  id: string;
+  group_id: string;
+  project_id: string;
+}
+
+// Legacy type for backwards compatibility
+export interface KeychainItem {
+  id: string;
+  user_id: string;
+  project_id: string | null;
+  name: string;
+  key_value: string;
+  service: string | null;
+  environment: KeyEnvironment;
+  notes: string | null;
+  is_favorite: boolean;
+  created_at: string;
+  updated_at: string;
+  project?: Project;
 }
 
 // User Profile
