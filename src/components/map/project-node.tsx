@@ -27,25 +27,53 @@ function ProjectNodeComponent({ data, selected }: { data: ProjectNodeData; selec
 
   return (
     <>
-      {/* Connection handles */}
+      {/* Connection handles - each needs unique id for multiple handles */}
       <Handle
         type="target"
         position={Position.Top}
+        id="top"
+        className="!bg-muted-foreground !w-3 !h-3"
+      />
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="top-source"
+        className="!bg-muted-foreground !w-3 !h-3"
+      />
+      <Handle
+        type="target"
+        position={Position.Bottom}
+        id="bottom"
         className="!bg-muted-foreground !w-3 !h-3"
       />
       <Handle
         type="source"
         position={Position.Bottom}
+        id="bottom-source"
         className="!bg-muted-foreground !w-3 !h-3"
       />
       <Handle
         type="target"
         position={Position.Left}
+        id="left"
+        className="!bg-muted-foreground !w-3 !h-3"
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left-source"
+        className="!bg-muted-foreground !w-3 !h-3"
+      />
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right"
         className="!bg-muted-foreground !w-3 !h-3"
       />
       <Handle
         type="source"
         position={Position.Right}
+        id="right-source"
         className="!bg-muted-foreground !w-3 !h-3"
       />
 

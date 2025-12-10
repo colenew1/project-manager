@@ -97,6 +97,8 @@ export interface ProjectRelation {
   target_id: string;
   relation_type: RelationType;
   label: string | null;
+  source_handle: string | null;
+  target_handle: string | null;
   created_at: string;
 }
 

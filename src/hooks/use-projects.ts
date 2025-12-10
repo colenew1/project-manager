@@ -110,7 +110,7 @@ export function useProjects() {
     },
   });
 
-  // Update project position (for map)
+  // Update project position (for map) - don't invalidate to prevent jumping
   const updateProjectPosition = useMutation({
     mutationFn: async ({
       id,
@@ -128,9 +128,8 @@ export function useProjects() {
 
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-    },
+    // Don't invalidate queries - this causes the nodes to jump back
+    // The position is already updated in the UI via React Flow state
   });
 
   // Add project link
