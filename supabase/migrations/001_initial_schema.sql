@@ -20,6 +20,7 @@ CREATE TABLE public.profiles (
 -- PROJECTS TABLE
 -- ============================================
 CREATE TYPE project_status AS ENUM ('idea', 'active', 'paused', 'completed', 'archived');
+CREATE TYPE project_category AS ENUM ('personal', 'marketing', 'sales', 'customer_success', 'engineering', 'product', 'design', 'operations', 'finance', 'hr', 'other');
 
 CREATE TABLE public.projects (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -29,9 +30,11 @@ CREATE TABLE public.projects (
     notes TEXT,                        -- Built-in notes (markdown content)
     mac_path TEXT,
     pc_path TEXT,
-    github_ssh TEXT,                   -- git@github.com:user/repo.git
-    github_https TEXT,                 -- https://github.com/user/repo.git
+    github_url TEXT,                   -- https://github.com/user/repo (viewable link)
+    github_clone TEXT,                 -- git@github.com:user/repo.git (for cloning)
+    live_url TEXT,                     -- https://myproject.vercel.app (deployed site)
     status project_status DEFAULT 'idea' NOT NULL,
+    categories project_category[] DEFAULT '{}', -- Multiple categories/departments
     position_x FLOAT DEFAULT 0,
     position_y FLOAT DEFAULT 0,
     color TEXT DEFAULT '#6366f1',

@@ -13,6 +13,7 @@ import {
   Copy,
   Link as LinkIcon,
   StickyNote,
+  Globe,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,8 +27,22 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { Project, ProjectStatus, Tag } from '@/types';
+import { Project, ProjectStatus, ProjectCategory, Tag } from '@/types';
 import { detectPlatform, getRelevantPath, generateVSCodeUrl, formatPathForDisplay } from '@/lib/utils/platform';
+
+const categoryLabels: Record<ProjectCategory, string> = {
+  personal: 'Personal',
+  marketing: 'Marketing',
+  sales: 'Sales',
+  customer_success: 'Customer Success',
+  engineering: 'Engineering',
+  product: 'Product',
+  design: 'Design',
+  operations: 'Operations',
+  finance: 'Finance',
+  hr: 'HR',
+  other: 'Other',
+};
 
 interface ProjectCardProps {
   project: Project;
@@ -121,6 +136,21 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
             </p>
           )}
 
+          {/* Categories */}
+          {project.categories && project.categories.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {project.categories.map((category) => (
+                <Badge
+                  key={category}
+                  variant="outline"
+                  className="text-xs"
+                >
+                  {categoryLabels[category]}
+                </Badge>
+              ))}
+            </div>
+          )}
+
           {/* Tags */}
           {project.tags && project.tags.length > 0 && (
             <div className="flex flex-wrap gap-1">
@@ -167,12 +197,29 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
 
           {/* Quick Links */}
           <div className="flex items-center gap-2 pt-2 border-t border-border">
-            {/* GitHub link - prefer HTTPS URL for browser viewing */}
-            {(project.github_https || project.github_ssh) && (
+            {/* Live URL - prominent link to deployed site */}
+            {project.live_url && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <a
-                    href={project.github_https || project.github_ssh?.replace('git@github.com:', 'https://github.com/').replace('.git', '') || '#'}
+                    href={project.live_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 rounded-md hover:bg-muted transition-colors text-green-600"
+                  >
+                    <Globe className="h-4 w-4" />
+                  </a>
+                </TooltipTrigger>
+                <TooltipContent>View Live Site</TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* GitHub link */}
+            {project.github_url && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <a
+                    href={project.github_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1.5 rounded-md hover:bg-muted transition-colors"

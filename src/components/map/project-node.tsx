@@ -3,7 +3,7 @@
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { Github, StickyNote, CheckSquare } from 'lucide-react';
+import { Github, StickyNote, CheckSquare, Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Project, ProjectStatus } from '@/types';
@@ -102,9 +102,20 @@ function ProjectNodeComponent({ data, selected }: { data: ProjectNodeData; selec
 
         {/* Footer */}
         <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-          {(project.github_https || project.github_ssh) && (
+          {project.live_url && (
             <a
-              href={project.github_https || project.github_ssh?.replace('git@github.com:', 'https://github.com/').replace('.git', '') || '#'}
+              href={project.live_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="hover:text-foreground transition-colors text-green-600"
+            >
+              <Globe className="h-3.5 w-3.5" />
+            </a>
+          )}
+          {project.github_url && (
+            <a
+              href={project.github_url}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}

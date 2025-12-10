@@ -1,6 +1,19 @@
 // Project Types
 export type ProjectStatus = 'idea' | 'active' | 'paused' | 'completed' | 'archived';
 
+export type ProjectCategory =
+  | 'personal'
+  | 'marketing'
+  | 'sales'
+  | 'customer_success'
+  | 'engineering'
+  | 'product'
+  | 'design'
+  | 'operations'
+  | 'finance'
+  | 'hr'
+  | 'other';
+
 export interface ProjectLink {
   id: string;
   project_id: string;
@@ -17,9 +30,11 @@ export interface Project {
   notes: string | null; // Built-in notes content (markdown)
   mac_path: string | null;
   pc_path: string | null;
-  github_ssh: string | null; // git@github.com:user/repo.git
-  github_https: string | null; // https://github.com/user/repo.git
+  github_url: string | null; // https://github.com/user/repo (viewable link)
+  github_clone: string | null; // git@github.com:user/repo.git (for cloning)
+  live_url: string | null; // https://myproject.vercel.app (deployed site)
   status: ProjectStatus;
+  categories: ProjectCategory[]; // Multiple categories/departments
   position_x: number;
   position_y: number;
   color: string;

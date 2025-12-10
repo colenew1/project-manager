@@ -17,6 +17,7 @@ import {
   Link as LinkIcon,
   Save,
   FileText,
+  Globe,
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -288,6 +289,46 @@ export default function ProjectDetailPage() {
                 </CardContent>
               </Card>
 
+              {/* Live URL Card */}
+              {project.live_url && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-green-600" />
+                      Live Site
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
+                        {project.live_url}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 flex-shrink-0"
+                        onClick={() => copyToClipboard(project.live_url!, 'live')}
+                      >
+                        {copiedItem === 'live' ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <a
+                        href={project.live_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* GitHub Card */}
               <Card>
                 <CardHeader>
@@ -297,49 +338,27 @@ export default function ProjectDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {project.github_ssh && (
+                  {project.github_url && (
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium">SSH</p>
+                      <p className="text-xs text-muted-foreground font-medium">Repository URL</p>
                       <div className="flex items-center gap-2">
                         <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
-                          {project.github_ssh}
+                          {project.github_url}
                         </code>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 flex-shrink-0"
-                          onClick={() => copyToClipboard(project.github_ssh!, 'ssh')}
+                          onClick={() => copyToClipboard(project.github_url!, 'github')}
                         >
-                          {copiedItem === 'ssh' ? (
-                            <Check className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  {project.github_https && (
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium">HTTPS</p>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
-                          {project.github_https}
-                        </code>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 flex-shrink-0"
-                          onClick={() => copyToClipboard(project.github_https!, 'https')}
-                        >
-                          {copiedItem === 'https' ? (
+                          {copiedItem === 'github' ? (
                             <Check className="h-4 w-4 text-green-500" />
                           ) : (
                             <Copy className="h-4 w-4" />
                           )}
                         </Button>
                         <a
-                          href={project.github_https.replace('.git', '')}
+                          href={project.github_url}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -350,7 +369,29 @@ export default function ProjectDetailPage() {
                       </div>
                     </div>
                   )}
-                  {!project.github_ssh && !project.github_https && (
+                  {project.github_clone && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-medium">Clone URL</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 rounded bg-muted px-2 py-1.5 text-sm truncate font-mono">
+                          {project.github_clone}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 flex-shrink-0"
+                          onClick={() => copyToClipboard(project.github_clone!, 'clone')}
+                        >
+                          {copiedItem === 'clone' ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {!project.github_url && !project.github_clone && (
                     <p className="text-sm text-muted-foreground">No GitHub links configured</p>
                   )}
                 </CardContent>

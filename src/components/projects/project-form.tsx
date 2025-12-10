@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Loader2, Plus, X, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Project, ProjectStatus } from '@/types';
+import { Project, ProjectStatus, ProjectCategory } from '@/types';
 
 interface AdditionalLink {
   label: string;
@@ -34,9 +34,11 @@ interface ProjectFormData {
   description: string;
   mac_path: string;
   pc_path: string;
-  github_ssh: string;
-  github_https: string;
+  github_url: string;
+  github_clone: string;
+  live_url: string;
   status: ProjectStatus;
+  categories: ProjectCategory[];
   color: string;
   icon: string;
   additional_links: AdditionalLink[];
@@ -71,9 +73,26 @@ const colorOptions = [
   '#3b82f6', // Blue
 ];
 
+const categoryOptions: { value: ProjectCategory; label: string }[] = [
+  { value: 'personal', label: 'Personal' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'sales', label: 'Sales' },
+  { value: 'customer_success', label: 'Customer Success' },
+  { value: 'engineering', label: 'Engineering' },
+  { value: 'product', label: 'Product' },
+  { value: 'design', label: 'Design' },
+  { value: 'operations', label: 'Operations' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'hr', label: 'HR' },
+  { value: 'other', label: 'Other' },
+];
+
 export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedColor, setSelectedColor] = useState(project?.color || colorOptions[0]);
+  const [selectedCategories, setSelectedCategories] = useState<ProjectCategory[]>(
+    project?.categories || []
+  );
   const [additionalLinks, setAdditionalLinks] = useState<AdditionalLink[]>(
     project?.links?.map((l) => ({ label: l.label, url: l.url })) || []
   );
@@ -93,9 +112,11 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
       description: project?.description || '',
       mac_path: project?.mac_path || '',
       pc_path: project?.pc_path || '',
-      github_ssh: project?.github_ssh || '',
-      github_https: project?.github_https || '',
+      github_url: project?.github_url || '',
+      github_clone: project?.github_clone || '',
+      live_url: project?.live_url || '',
       status: project?.status || 'idea',
+      categories: project?.categories || [],
       color: project?.color || colorOptions[0],
       icon: project?.icon || '',
       additional_links: [],
@@ -103,6 +124,37 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
   });
 
   const status = watch('status');
+
+  // Reset form when project changes or dialog opens
+  useEffect(() => {
+    if (open) {
+      reset({
+        name: project?.name || '',
+        description: project?.description || '',
+        mac_path: project?.mac_path || '',
+        pc_path: project?.pc_path || '',
+        github_url: project?.github_url || '',
+        github_clone: project?.github_clone || '',
+        live_url: project?.live_url || '',
+        status: project?.status || 'idea',
+        categories: project?.categories || [],
+        color: project?.color || colorOptions[0],
+        icon: project?.icon || '',
+        additional_links: [],
+      });
+      setSelectedColor(project?.color || colorOptions[0]);
+      setSelectedCategories(project?.categories || []);
+      setAdditionalLinks(project?.links?.map((l) => ({ label: l.label, url: l.url })) || []);
+    }
+  }, [open, project, reset]);
+
+  const toggleCategory = (category: ProjectCategory) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
+  };
 
   const addLink = () => {
     if (newLinkLabel.trim() && newLinkUrl.trim()) {
@@ -119,8 +171,9 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
   const handleFormSubmit = async (data: ProjectFormData) => {
     setIsLoading(true);
     try {
-      await onSubmit({ ...data, color: selectedColor, additional_links: additionalLinks });
+      await onSubmit({ ...data, color: selectedColor, categories: selectedCategories, additional_links: additionalLinks });
       reset();
+      setSelectedCategories([]);
       setAdditionalLinks([]);
       onClose();
     } catch (error) {
@@ -221,6 +274,30 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
             </div>
           </div>
 
+          {/* Categories */}
+          <div className="space-y-2">
+            <Label>Categories / Departments</Label>
+            <div className="flex flex-wrap gap-2">
+              {categoryOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => toggleCategory(option.value)}
+                  className={`px-3 py-1.5 text-sm rounded-full border transition-all ${
+                    selectedCategories.includes(option.value)
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background hover:bg-muted border-border'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Select one or more categories this project belongs to
+            </p>
+          </div>
+
           {/* Paths */}
           <div className="space-y-4 rounded-lg border border-border p-4">
             <h4 className="font-medium">Directory Paths</h4>
@@ -244,25 +321,40 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
             </div>
           </div>
 
+          {/* Live URL */}
+          <div className="space-y-2">
+            <Label htmlFor="live_url">Live URL</Label>
+            <Input
+              id="live_url"
+              placeholder="https://myproject.vercel.app"
+              {...register('live_url')}
+            />
+            <p className="text-xs text-muted-foreground">
+              The deployed/production URL for this project
+            </p>
+          </div>
+
           {/* GitHub Links */}
           <div className="space-y-4 rounded-lg border border-border p-4">
             <h4 className="font-medium">GitHub Repository</h4>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="github_ssh">SSH URL</Label>
+                <Label htmlFor="github_url">Repository URL</Label>
                 <Input
-                  id="github_ssh"
-                  placeholder="git@github.com:user/repo.git"
-                  {...register('github_ssh')}
+                  id="github_url"
+                  placeholder="https://github.com/user/repo"
+                  {...register('github_url')}
                 />
+                <p className="text-xs text-muted-foreground">Link to view the repo</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="github_https">HTTPS URL</Label>
+                <Label htmlFor="github_clone">Clone URL</Label>
                 <Input
-                  id="github_https"
-                  placeholder="https://github.com/user/repo.git"
-                  {...register('github_https')}
+                  id="github_clone"
+                  placeholder="git@github.com:user/repo.git"
+                  {...register('github_clone')}
                 />
+                <p className="text-xs text-muted-foreground">SSH or HTTPS for cloning</p>
               </div>
             </div>
           </div>
