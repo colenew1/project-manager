@@ -63,10 +63,20 @@ export default function MapPage() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState([] as Edge[]);
 
-  // Update nodes when projects change
+  // Update nodes when filtered projects change
   useEffect(() => {
-    setNodes(initialNodes);
-  }, [initialNodes, setNodes]);
+    const newNodes: Node[] = filteredProjects.map((project, index) => ({
+      id: project.id,
+      type: 'project',
+      position: {
+        x: project.position_x || (index % 4) * 300 + 50,
+        y: project.position_y || Math.floor(index / 4) * 250 + 50,
+      },
+      data: { project },
+    }));
+    setNodes(newNodes);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredProjects]);
 
   // Handle node drag end - save position
   const onNodeDragStop = useCallback(
