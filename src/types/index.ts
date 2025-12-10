@@ -1,5 +1,5 @@
 // Project Types
-export type ProjectStatus = 'idea' | 'active' | 'paused' | 'completed' | 'archived';
+export type ProjectStatus = 'idea' | 'under_construction' | 'active' | 'paused' | 'completed' | 'archived';
 
 export type ProjectCategory =
   | 'personal'

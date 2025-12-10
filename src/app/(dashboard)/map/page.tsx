@@ -159,6 +159,7 @@ export default function MapPage() {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="idea">Ideas</SelectItem>
+                <SelectItem value="under_construction">Under Construction</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>

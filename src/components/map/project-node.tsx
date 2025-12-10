@@ -14,6 +14,7 @@ interface ProjectNodeData extends Record<string, unknown> {
 
 const statusConfig: Record<ProjectStatus, { label: string; className: string }> = {
   idea: { label: 'Idea', className: 'bg-purple-500 text-white' },
+  under_construction: { label: 'Building', className: 'bg-orange-500 text-white' },
   active: { label: 'Active', className: 'bg-green-500 text-white' },
   paused: { label: 'Paused', className: 'bg-yellow-500 text-white' },
   completed: { label: 'Completed', className: 'bg-blue-500 text-white' },

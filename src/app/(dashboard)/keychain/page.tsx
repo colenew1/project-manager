@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+export const dynamic = 'force-dynamic';
+
+import { useState, useEffect } from 'react';
 import {
   Plus,
   Key,
@@ -19,6 +21,7 @@ import {
   ChevronDown,
   ChevronUp,
   Folder,
+  Loader2,
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -67,8 +70,9 @@ import {
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { KeychainGroup, KeyEnvironment, Project } from '@/types';
+import { KeychainGroup, KeyEnvironment } from '@/types';
 import { useProjects } from '@/hooks/use-projects';
+import { useKeychain } from '@/hooks/use-keychain';
 
 // Common services for quick selection
 const commonServices = [
@@ -101,11 +105,17 @@ interface FormEntry {
 }
 
 export default function KeychainPage() {
-  // Fetch projects from Supabase
+  // Fetch projects and keychain groups from Supabase
   const { projects = [] } = useProjects();
+  const {
+    groups,
+    isLoading,
+    createGroup,
+    updateGroup,
+    toggleFavorite: toggleFavoriteMutation,
+    deleteGroup: deleteGroupMutation
+  } = useKeychain();
 
-  // Local state for keychain groups (will connect to Supabase later)
-  const [groups, setGroups] = useState<KeychainGroup[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -115,7 +125,8 @@ export default function KeychainPage() {
   // Form state
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<KeychainGroup | null>(null);
-  const [deleteGroup, setDeleteGroup] = useState<KeychainGroup | null>(null);
+  const [deleteGroupState, setDeleteGroupState] = useState<KeychainGroup | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form fields
   const [formName, setFormName] = useState('');
@@ -124,6 +135,13 @@ export default function KeychainPage() {
   const [formNotes, setFormNotes] = useState('');
   const [formEntries, setFormEntries] = useState<FormEntry[]>([{ label: '', value: '' }]);
   const [formProjectIds, setFormProjectIds] = useState<string[]>([]);
+
+  // Expand all groups by default when they load
+  useEffect(() => {
+    if (groups.length > 0) {
+      setExpandedGroups(new Set(groups.map(g => g.id)));
+    }
+  }, [groups]);
 
   // Filter groups
   const filteredGroups = groups.filter((group) => {
@@ -179,10 +197,8 @@ export default function KeychainPage() {
     return value.slice(0, 4) + '••••••••' + value.slice(-4);
   };
 
-  const toggleFavorite = (id: string) => {
-    setGroups((prev) =>
-      prev.map((g) => (g.id === id ? { ...g, is_favorite: !g.is_favorite } : g))
-    );
+  const handleToggleFavorite = (group: KeychainGroup) => {
+    toggleFavoriteMutation.mutate({ id: group.id, is_favorite: !group.is_favorite });
   };
 
   const openEditForm = (group: KeychainGroup) => {
@@ -231,7 +247,7 @@ export default function KeychainPage() {
     );
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formName.trim()) {
       toast.error('Name is required');
       return;
@@ -243,68 +259,40 @@ export default function KeychainPage() {
       return;
     }
 
-    const linkedProjects = projects.filter(p => formProjectIds.includes(p.id));
-
-    if (editingGroup) {
-      // Update existing
-      setGroups((prev) =>
-        prev.map((g) =>
-          g.id === editingGroup.id
-            ? {
-                ...g,
-                name: formName,
-                service: formService || null,
-                environment: formEnvironment,
-                notes: formNotes || null,
-                entries: validEntries.map((e, i) => ({
-                  id: `${editingGroup.id}-${i}`,
-                  group_id: editingGroup.id,
-                  label: e.label,
-                  value: e.value,
-                  created_at: new Date().toISOString(),
-                })),
-                projects: linkedProjects,
-                updated_at: new Date().toISOString(),
-              }
-            : g
-        )
-      );
-      toast.success('Keychain group updated');
-    } else {
-      // Create new
-      const newId = Math.random().toString(36).slice(2);
-      const newGroup: KeychainGroup = {
-        id: newId,
-        user_id: '1',
-        name: formName,
-        service: formService || null,
-        environment: formEnvironment,
-        notes: formNotes || null,
-        is_favorite: false,
-        entries: validEntries.map((e, i) => ({
-          id: `${newId}-${i}`,
-          group_id: newId,
-          label: e.label,
-          value: e.value,
-          created_at: new Date().toISOString(),
-        })),
-        projects: linkedProjects,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setGroups((prev) => [newGroup, ...prev]);
-      setExpandedGroups(prev => new Set([...prev, newId]));
-      toast.success('Keychain group created');
+    setIsSubmitting(true);
+    try {
+      if (editingGroup) {
+        await updateGroup.mutateAsync({
+          id: editingGroup.id,
+          name: formName,
+          service: formService || null,
+          environment: formEnvironment,
+          notes: formNotes || null,
+          entries: validEntries,
+          project_ids: formProjectIds,
+        });
+      } else {
+        await createGroup.mutateAsync({
+          name: formName,
+          service: formService || null,
+          environment: formEnvironment,
+          notes: formNotes || null,
+          entries: validEntries,
+          project_ids: formProjectIds,
+        });
+      }
+      setIsFormOpen(false);
+    } catch (error) {
+      console.error('Error saving keychain group:', error);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsFormOpen(false);
   };
 
-  const handleDelete = () => {
-    if (deleteGroup) {
-      setGroups((prev) => prev.filter((g) => g.id !== deleteGroup.id));
-      toast.success('Keychain group deleted');
-      setDeleteGroup(null);
+  const handleDelete = async () => {
+    if (deleteGroupState) {
+      await deleteGroupMutation.mutateAsync(deleteGroupState.id);
+      setDeleteGroupState(null);
     }
   };
 
@@ -356,8 +344,15 @@ export default function KeychainPage() {
           </CardContent>
         </Card>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        )}
+
         {/* Groups List */}
-        {filteredGroups.length === 0 ? (
+        {!isLoading && filteredGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Key className="mb-4 h-12 w-12 text-muted-foreground" />
             <h3 className="mb-2 text-lg font-semibold">No keys found</h3>
@@ -373,7 +368,7 @@ export default function KeychainPage() {
               </Button>
             )}
           </div>
-        ) : (
+        ) : !isLoading && (
           <div className="space-y-4">
             {filteredGroups
               .sort((a, b) => (b.is_favorite ? 1 : 0) - (a.is_favorite ? 1 : 0))
@@ -424,7 +419,7 @@ export default function KeychainPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => toggleFavorite(group.id)}>
+                            <DropdownMenuItem onClick={() => handleToggleFavorite(group)}>
                               {group.is_favorite ? (
                                 <>
                                   <StarOff className="mr-2 h-4 w-4" />
@@ -443,7 +438,7 @@ export default function KeychainPage() {
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => setDeleteGroup(group)}
+                              onClick={() => setDeleteGroupState(group)}
                               className="text-destructive"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
@@ -686,7 +681,8 @@ export default function KeychainPage() {
             <Button variant="outline" onClick={() => setIsFormOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingGroup ? 'Save Changes' : 'Add Keys'}
             </Button>
           </DialogFooter>
@@ -694,12 +690,12 @@ export default function KeychainPage() {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteGroup} onOpenChange={() => setDeleteGroup(null)}>
+      <AlertDialog open={!!deleteGroupState} onOpenChange={() => setDeleteGroupState(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Keychain Group</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deleteGroup?.name}&quot; and all its keys? This action cannot be undone.
+              Are you sure you want to delete &quot;{deleteGroupState?.name}&quot; and all its keys? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

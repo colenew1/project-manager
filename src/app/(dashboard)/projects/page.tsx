@@ -28,11 +28,23 @@ export default function ProjectsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all');
 
-  // Filter projects
-  const filteredProjects = projects.filter((project) => {
-    if (statusFilter === 'all') return true;
-    return project.status === statusFilter;
-  });
+  // Status sort order: under_construction, active, completed, idea, paused, archived
+  const statusOrder: Record<string, number> = {
+    under_construction: 0,
+    active: 1,
+    completed: 2,
+    idea: 3,
+    paused: 4,
+    archived: 5,
+  };
+
+  // Filter and sort projects
+  const filteredProjects = projects
+    .filter((project) => {
+      if (statusFilter === 'all') return true;
+      return project.status === statusFilter;
+    })
+    .sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
 
   // Handle form submission
   const handleCreateProject = async (data: any) => {
@@ -83,6 +95,7 @@ export default function ProjectsPage() {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="idea">Ideas</SelectItem>
+                <SelectItem value="under_construction">Under Construction</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>

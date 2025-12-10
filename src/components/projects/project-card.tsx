@@ -52,6 +52,7 @@ interface ProjectCardProps {
 
 const statusConfig: Record<ProjectStatus, { label: string; className: string }> = {
   idea: { label: 'Idea', className: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
+  under_construction: { label: 'Under Construction', className: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
   active: { label: 'Active', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
   paused: { label: 'Paused', className: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
   completed: { label: 'Completed', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },

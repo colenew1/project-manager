@@ -54,6 +54,7 @@ interface ProjectFormProps {
 
 const statusOptions: { value: ProjectStatus; label: string }[] = [
   { value: 'idea', label: 'Idea' },
+  { value: 'under_construction', label: 'Under Construction' },
   { value: 'active', label: 'Active' },
   { value: 'paused', label: 'Paused' },
   { value: 'completed', label: 'Completed' },
@@ -221,7 +222,7 @@ export function ProjectForm({ open, onClose, onSubmit, project, mode }: ProjectF
               <Label htmlFor="icon">Icon</Label>
               <Input
                 id="icon"
-                placeholder="🚀"
+                placeholder=""
                 maxLength={2}
                 className="text-center text-xl"
                 {...register('icon')}
