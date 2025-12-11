@@ -87,20 +87,37 @@ export function ProjectCard({ project, onEdit, onDelete, onToggleFavorite }: Pro
         />
 
         <CardHeader className="pb-2">
-          <div className="flex items-start justify-between">
+          {/* Favorite star button - top right */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => onToggleFavorite?.(project)}
+                className="absolute top-3 right-3 p-1 rounded hover:bg-muted transition-colors z-10"
+              >
+                <Star
+                  className={cn(
+                    "h-4 w-4 transition-colors",
+                    project.is_favorite
+                      ? "fill-yellow-400 text-yellow-400"
+                      : "text-muted-foreground/50 hover:text-yellow-400"
+                  )}
+                />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {project.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+            </TooltipContent>
+          </Tooltip>
+
+          <div className="flex items-start justify-between pr-6">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1">
-                <Link
-                  href={`/projects/${project.id}`}
-                  className="block truncate text-lg font-semibold hover:underline"
-                >
-                  {project.icon && <span className="mr-2">{project.icon}</span>}
-                  {project.name}
-                </Link>
-                {project.is_favorite && (
-                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
-                )}
-              </div>
+              <Link
+                href={`/projects/${project.id}`}
+                className="block truncate text-lg font-semibold hover:underline"
+              >
+                {project.icon && <span className="mr-2">{project.icon}</span>}
+                {project.name}
+              </Link>
               <Badge
                 variant="outline"
                 className={cn('mt-1', statusConfig[project.status].className)}
