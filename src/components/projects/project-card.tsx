@@ -16,6 +16,7 @@ import {
   Globe,
   Terminal,
   Check,
+  Star,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +51,7 @@ interface ProjectCardProps {
   project: Project;
   onEdit?: (project: Project) => void;
   onDelete?: (project: Project) => void;
+  onToggleFavorite?: (project: Project) => void;
 }
 
 const statusConfig: Record<ProjectStatus, { label: string; className: string }> = {
@@ -61,7 +63,7 @@ const statusConfig: Record<ProjectStatus, { label: string; className: string }> 
   archived: { label: 'Archived', className: 'bg-gray-500/10 text-gray-500 border-gray-500/20' },
 };
 
-export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, onEdit, onDelete, onToggleFavorite }: ProjectCardProps) {
   const [platform] = useState(() => detectPlatform());
   const [copied, setCopied] = useState(false);
   const relevantPath = getRelevantPath(project.mac_path, project.pc_path, platform);
@@ -87,13 +89,18 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
-              <Link
-                href={`/projects/${project.id}`}
-                className="block truncate text-lg font-semibold hover:underline"
-              >
-                {project.icon && <span className="mr-2">{project.icon}</span>}
-                {project.name}
-              </Link>
+              <div className="flex items-center gap-1">
+                <Link
+                  href={`/projects/${project.id}`}
+                  className="block truncate text-lg font-semibold hover:underline"
+                >
+                  {project.icon && <span className="mr-2">{project.icon}</span>}
+                  {project.name}
+                </Link>
+                {project.is_favorite && (
+                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+                )}
+              </div>
               <Badge
                 variant="outline"
                 className={cn('mt-1', statusConfig[project.status].className)}
@@ -113,6 +120,10 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onToggleFavorite?.(project)}>
+                  <Star className={cn("mr-2 h-4 w-4", project.is_favorite && "fill-yellow-400 text-yellow-400")} />
+                  {project.is_favorite ? 'Unfavorite' : 'Favorite'}
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onEdit?.(project)}>
                   <Pencil className="mr-2 h-4 w-4" />
                   Edit

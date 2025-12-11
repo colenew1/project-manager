@@ -39,11 +39,15 @@ export interface Project {
   position_y: number;
   color: string;
   icon: string | null;
+  is_favorite: boolean;
+  folder_id: string | null;
+  last_accessed_at: string | null;
   created_at: string;
   updated_at: string;
   tags?: Tag[];
   todos?: Todo[];
   links?: ProjectLink[]; // Additional custom links
+  folder?: ProjectFolder;
 }
 
 // Tag Types
@@ -118,6 +122,18 @@ export interface NoteProject {
   id: string;
   note_id: string;
   project_id: string;
+}
+
+// Project Folder
+export interface ProjectFolder {
+  id: string;
+  user_id: string;
+  name: string;
+  color: string;
+  icon: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // User Profile

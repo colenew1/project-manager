@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/lib/supabase/client';
-import { Project, ProjectStatus, ProjectLink } from '@/types';
+import { Project, ProjectStatus, ProjectLink, ProjectFolder } from '@/types';
 import { toast } from 'sonner';
 
 export function useProjects() {
@@ -27,7 +27,8 @@ export function useProjects() {
           todos:todo_projects(
             todo:todos(*)
           ),
-          links:project_links(*)
+          links:project_links(*),
+          folder:project_folders(*)
         `)
         .order('updated_at', { ascending: false });
 
@@ -39,6 +40,7 @@ export function useProjects() {
         tags: project.tags?.map((pt: any) => pt.tag).filter(Boolean) || [],
         todos: project.todos?.map((tp: any) => tp.todo).filter(Boolean) || [],
         links: project.links || [],
+        folder: project.folder || null,
       })) as Project[];
     },
   });
@@ -107,6 +109,37 @@ export function useProjects() {
     onError: (error) => {
       toast.error('Failed to delete project');
       console.error(error);
+    },
+  });
+
+  // Toggle favorite
+  const toggleFavorite = useMutation({
+    mutationFn: async ({ id, is_favorite }: { id: string; is_favorite: boolean }) => {
+      const { error } = await supabase
+        .from('projects')
+        .update({ is_favorite })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+    onError: (error) => {
+      toast.error('Failed to update favorite');
+      console.error(error);
+    },
+  });
+
+  // Update last accessed
+  const updateLastAccessed = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('projects')
+        .update({ last_accessed_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
     },
   });
 
@@ -295,6 +328,8 @@ export function useProjects() {
     createProject,
     updateProject,
     deleteProject,
+    toggleFavorite,
+    updateLastAccessed,
     updateProjectPosition,
     addProjectLink,
     deleteProjectLink,

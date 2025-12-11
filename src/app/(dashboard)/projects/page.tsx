@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useMemo } from 'react';
-import { Plus, LayoutGrid, List, Search, X, Check } from 'lucide-react';
+import { Plus, LayoutGrid, List, Search, X, Check, Star, Clock, FolderOpen, Code2 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ProjectCard } from '@/components/projects/project-card';
 import { ProjectForm } from '@/components/projects/project-form';
 import { useProjects } from '@/hooks/use-projects';
+import { useFolders } from '@/hooks/use-folders';
 import { useUIStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils';
 import { Project, ProjectStatus } from '@/types';
@@ -32,13 +33,18 @@ const statusConfig: Record<ProjectStatus, { label: string; className: string }> 
 const allStatuses: ProjectStatus[] = ['under_construction', 'active', 'completed', 'idea', 'paused', 'archived'];
 
 export default function ProjectsPage() {
-  const { projects, isLoading, createProjectWithLinks, updateProjectWithLinks, deleteProject } = useProjects();
+  const { projects, isLoading, createProjectWithLinks, updateProjectWithLinks, deleteProject, toggleFavorite } = useProjects();
+  const { folders } = useFolders();
   const { projectView, setProjectView, quickAddOpen, quickAddType, closeQuickAdd } = useUIStore();
 
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<ProjectStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showRecentOnly, setShowRecentOnly] = useState(false);
+  const [selectedTechStacks, setSelectedTechStacks] = useState<string[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   // Status sort order: under_construction, active, completed, idea, paused, archived
   const statusOrder: Record<string, number> = {
@@ -59,38 +65,121 @@ export default function ProjectsPage() {
     );
   };
 
+  // Toggle tech stack selection
+  const toggleTechStack = (tagName: string) => {
+    setSelectedTechStacks((prev) =>
+      prev.includes(tagName)
+        ? prev.filter((t) => t !== tagName)
+        : [...prev, tagName]
+    );
+  };
+
   // Clear all filters
   const clearFilters = () => {
     setSelectedStatuses([]);
     setSearchQuery('');
+    setShowFavoritesOnly(false);
+    setShowRecentOnly(false);
+    setSelectedTechStacks([]);
+    setSelectedFolderId(null);
   };
+
+  // Get unique tech stack tags from all projects
+  const allTechStacks = useMemo(() => {
+    const techStackMap = new Map<string, { name: string; color: string }>();
+    projects.forEach((project) => {
+      project.tags?.forEach((tag) => {
+        if (tag.is_tech_stack && !techStackMap.has(tag.name)) {
+          techStackMap.set(tag.name, { name: tag.name, color: tag.color });
+        }
+      });
+    });
+    return Array.from(techStackMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [projects]);
+
+  // Get recent projects (accessed in last 7 days or updated in last 7 days)
+  const recentProjects = useMemo(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    return projects.filter((project) => {
+      const lastAccessed = project.last_accessed_at ? new Date(project.last_accessed_at) : null;
+      const updated = new Date(project.updated_at);
+      return (lastAccessed && lastAccessed > sevenDaysAgo) || updated > sevenDaysAgo;
+    }).sort((a, b) => {
+      const aDate = a.last_accessed_at ? new Date(a.last_accessed_at) : new Date(a.updated_at);
+      const bDate = b.last_accessed_at ? new Date(b.last_accessed_at) : new Date(b.updated_at);
+      return bDate.getTime() - aDate.getTime();
+    }).slice(0, 5);
+  }, [projects]);
 
   // Filter and sort projects
   const filteredProjects = useMemo(() => {
-    return projects
-      .filter((project) => {
-        // Status filter (if any selected)
-        if (selectedStatuses.length > 0 && !selectedStatuses.includes(project.status)) {
+    let filtered = projects.filter((project) => {
+      // Favorites filter
+      if (showFavoritesOnly && !project.is_favorite) {
+        return false;
+      }
+
+      // Recent filter
+      if (showRecentOnly) {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const lastAccessed = project.last_accessed_at ? new Date(project.last_accessed_at) : null;
+        const updated = new Date(project.updated_at);
+        if (!((lastAccessed && lastAccessed > sevenDaysAgo) || updated > sevenDaysAgo)) {
           return false;
         }
+      }
 
-        // Search filter
-        if (searchQuery.trim()) {
-          const query = searchQuery.toLowerCase();
-          const matchesName = project.name.toLowerCase().includes(query);
-          const matchesDescription = project.description?.toLowerCase().includes(query);
-          const matchesTags = project.tags?.some((tag) => tag.name.toLowerCase().includes(query));
-          const matchesCategories = project.categories?.some((cat) => cat.toLowerCase().includes(query));
+      // Status filter (if any selected)
+      if (selectedStatuses.length > 0 && !selectedStatuses.includes(project.status)) {
+        return false;
+      }
 
-          if (!matchesName && !matchesDescription && !matchesTags && !matchesCategories) {
-            return false;
-          }
+      // Search filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesName = project.name.toLowerCase().includes(query);
+        const matchesDescription = project.description?.toLowerCase().includes(query);
+        const matchesTags = project.tags?.some((tag) => tag.name.toLowerCase().includes(query));
+        const matchesCategories = project.categories?.some((cat) => cat.toLowerCase().includes(query));
+
+        if (!matchesName && !matchesDescription && !matchesTags && !matchesCategories) {
+          return false;
         }
+      }
 
-        return true;
-      })
-      .sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
-  }, [projects, selectedStatuses, searchQuery]);
+      // Tech stack filter
+      if (selectedTechStacks.length > 0) {
+        const projectTechStacks = project.tags?.filter((t) => t.is_tech_stack).map((t) => t.name) || [];
+        const hasSelectedTech = selectedTechStacks.some((tech) => projectTechStacks.includes(tech));
+        if (!hasSelectedTech) {
+          return false;
+        }
+      }
+
+      // Folder filter
+      if (selectedFolderId !== null) {
+        if (selectedFolderId === 'unfiled') {
+          if (project.folder_id !== null) return false;
+        } else {
+          if (project.folder_id !== selectedFolderId) return false;
+        }
+      }
+
+      return true;
+    });
+
+    // Sort: favorites first, then by status order
+    return filtered.sort((a, b) => {
+      // Favorites always first
+      if (a.is_favorite && !b.is_favorite) return -1;
+      if (!a.is_favorite && b.is_favorite) return 1;
+      // Then by status order
+      return statusOrder[a.status] - statusOrder[b.status];
+    });
+  }, [projects, selectedStatuses, searchQuery, showFavoritesOnly, showRecentOnly, selectedTechStacks, selectedFolderId]);
 
   // Handle form submission
   const handleCreateProject = async (data: any) => {
@@ -118,6 +207,12 @@ export default function ProjectsPage() {
       await deleteProject.mutateAsync(project.id);
     }
   };
+
+  const handleToggleFavorite = async (project: Project) => {
+    await toggleFavorite.mutateAsync({ id: project.id, is_favorite: !project.is_favorite });
+  };
+
+  const hasActiveFilters = selectedStatuses.length > 0 || searchQuery || showFavoritesOnly || showRecentOnly || selectedTechStacks.length > 0 || selectedFolderId !== null;
 
   // Handle quick add from command palette
   const isQuickAddOpen = quickAddOpen && quickAddType === 'project';
@@ -150,10 +245,32 @@ export default function ProjectsPage() {
               )}
             </div>
 
+            {/* Favorites Toggle */}
+            <Button
+              variant={showFavoritesOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className="gap-1.5"
+            >
+              <Star className={cn("h-4 w-4", showFavoritesOnly && "fill-current")} />
+              <span className="hidden sm:inline">Favorites</span>
+            </Button>
+
+            {/* Recent Toggle */}
+            <Button
+              variant={showRecentOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowRecentOnly(!showRecentOnly)}
+              className="gap-1.5"
+            >
+              <Clock className="h-4 w-4" />
+              <span className="hidden sm:inline">Recent</span>
+            </Button>
+
             {/* Status Multi-Select */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="gap-2">
+                <Button variant="outline" size="sm" className="gap-2">
                   Status
                   {selectedStatuses.length > 0 && (
                     <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
@@ -204,6 +321,149 @@ export default function ProjectsPage() {
               </PopoverContent>
             </Popover>
 
+            {/* Tech Stack Multi-Select */}
+            {allTechStacks.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Code2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Tech</span>
+                    {selectedTechStacks.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
+                        {selectedTechStacks.length}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" align="start">
+                  <div className="space-y-1 max-h-64 overflow-y-auto">
+                    {allTechStacks.map((tech) => (
+                      <button
+                        key={tech.name}
+                        onClick={() => toggleTechStack(tech.name)}
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted transition-colors',
+                          selectedTechStacks.includes(tech.name) && 'bg-muted'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'flex h-4 w-4 items-center justify-center rounded border',
+                            selectedTechStacks.includes(tech.name)
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-muted-foreground/30'
+                          )}
+                        >
+                          {selectedTechStacks.includes(tech.name) && <Check className="h-3 w-3" />}
+                        </div>
+                        <Badge
+                          variant="secondary"
+                          className="text-xs"
+                          style={{
+                            backgroundColor: `${tech.color}20`,
+                            borderColor: `${tech.color}40`,
+                            color: tech.color,
+                          }}
+                        >
+                          {tech.name}
+                        </Badge>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedTechStacks.length > 0 && (
+                    <div className="mt-2 pt-2 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={() => setSelectedTechStacks([])}
+                      >
+                        Clear selection
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {/* Folder Filter */}
+            {folders.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <FolderOpen className="h-4 w-4" />
+                    <span className="hidden sm:inline">Folder</span>
+                    {selectedFolderId !== null && (
+                      <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
+                        1
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" align="start">
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => setSelectedFolderId(selectedFolderId === 'unfiled' ? null : 'unfiled')}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted transition-colors',
+                        selectedFolderId === 'unfiled' && 'bg-muted'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'flex h-4 w-4 items-center justify-center rounded border',
+                          selectedFolderId === 'unfiled'
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-muted-foreground/30'
+                        )}
+                      >
+                        {selectedFolderId === 'unfiled' && <Check className="h-3 w-3" />}
+                      </div>
+                      <span className="text-muted-foreground">Unfiled</span>
+                    </button>
+                    {folders.map((folder) => (
+                      <button
+                        key={folder.id}
+                        onClick={() => setSelectedFolderId(selectedFolderId === folder.id ? null : folder.id)}
+                        className={cn(
+                          'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted transition-colors',
+                          selectedFolderId === folder.id && 'bg-muted'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'flex h-4 w-4 items-center justify-center rounded border',
+                            selectedFolderId === folder.id
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-muted-foreground/30'
+                          )}
+                        >
+                          {selectedFolderId === folder.id && <Check className="h-3 w-3" />}
+                        </div>
+                        <div
+                          className="h-3 w-3 rounded"
+                          style={{ backgroundColor: folder.color }}
+                        />
+                        <span>{folder.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedFolderId !== null && (
+                    <div className="mt-2 pt-2 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={() => setSelectedFolderId(null)}
+                      >
+                        Clear selection
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            )}
+
             <div className="flex-1" />
 
             {/* View Toggle */}
@@ -233,9 +493,27 @@ export default function ProjectsPage() {
           </div>
 
           {/* Active Filters Display */}
-          {(selectedStatuses.length > 0 || searchQuery) && (
+          {hasActiveFilters && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">Filters:</span>
+              {showFavoritesOnly && (
+                <Badge variant="secondary" className="gap-1">
+                  <Star className="h-3 w-3 fill-current" />
+                  Favorites
+                  <button onClick={() => setShowFavoritesOnly(false)} className="ml-1 hover:text-foreground">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {showRecentOnly && (
+                <Badge variant="secondary" className="gap-1">
+                  <Clock className="h-3 w-3" />
+                  Recent
+                  <button onClick={() => setShowRecentOnly(false)} className="ml-1 hover:text-foreground">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
               {searchQuery && (
                 <Badge variant="secondary" className="gap-1">
                   Search: "{searchQuery}"
@@ -256,6 +534,36 @@ export default function ProjectsPage() {
                   </button>
                 </Badge>
               ))}
+              {selectedTechStacks.map((tech) => {
+                const techData = allTechStacks.find((t) => t.name === tech);
+                return (
+                  <Badge
+                    key={tech}
+                    variant="secondary"
+                    className="gap-1"
+                    style={techData ? {
+                      backgroundColor: `${techData.color}20`,
+                      borderColor: `${techData.color}40`,
+                      color: techData.color,
+                    } : undefined}
+                  >
+                    <Code2 className="h-3 w-3" />
+                    {tech}
+                    <button onClick={() => toggleTechStack(tech)} className="ml-1 hover:opacity-70">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                );
+              })}
+              {selectedFolderId !== null && (
+                <Badge variant="secondary" className="gap-1">
+                  <FolderOpen className="h-3 w-3" />
+                  {selectedFolderId === 'unfiled' ? 'Unfiled' : folders.find((f) => f.id === selectedFolderId)?.name || 'Folder'}
+                  <button onClick={() => setSelectedFolderId(null)} className="ml-1 hover:text-foreground">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
               <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={clearFilters}>
                 Clear all
               </Button>
@@ -277,14 +585,14 @@ export default function ProjectsPage() {
               <Plus className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="mb-2 text-lg font-semibold">
-              {selectedStatuses.length > 0 || searchQuery ? 'No matching projects' : 'No projects yet'}
+              {hasActiveFilters ? 'No matching projects' : 'No projects yet'}
             </h3>
             <p className="mb-4 text-muted-foreground">
-              {selectedStatuses.length > 0 || searchQuery
+              {hasActiveFilters
                 ? 'Try adjusting your filters or search query.'
                 : 'Create your first project to get started.'}
             </p>
-            {selectedStatuses.length === 0 && !searchQuery ? (
+            {!hasActiveFilters ? (
               <Button onClick={() => setIsFormOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Create Project
@@ -315,6 +623,7 @@ export default function ProjectsPage() {
                   setIsFormOpen(true);
                 }}
                 onDelete={handleDeleteProject}
+                onToggleFavorite={handleToggleFavorite}
               />
             ))}
           </div>

@@ -12,6 +12,7 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
+  Archive,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 const navItems = [
   { href: '/projects', label: 'Projects', icon: FolderKanban },
+  { href: '/archive', label: 'Archive', icon: Archive },
   { href: '/map', label: 'Map', icon: Map },
   { href: '/todos', label: 'Todos', icon: CheckSquare },
   { href: '/notes', label: 'Notes', icon: StickyNote },
