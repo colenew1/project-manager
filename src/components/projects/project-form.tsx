@@ -76,7 +76,7 @@ const colorOptions = [
 
 // Base paths for auto-completion
 const MAC_BASE_PATH = '/Users/colenewman/Desktop/Code-Projects/';
-const PC_BASE_PATH = 'C:\\Users\\colenewman\\Code-Projects\\';
+const PC_BASE_PATH = 'C:\\Users\\Owner\\desktop\\code-projects\\';
 
 const categoryOptions: { value: ProjectCategory; label: string }[] = [
   { value: 'personal', label: 'Personal' },

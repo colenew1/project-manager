@@ -2,71 +2,19 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Moon, Sun, Monitor, LogOut, Loader2 } from 'lucide-react';
+import { Moon, Sun, Monitor, LogOut } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { useUIStore } from '@/stores/ui-store';
 import { createClient } from '@/lib/supabase/client';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
   const router = useRouter();
   const { theme, setTheme } = useUIStore();
-  const [isLoading, setIsLoading] = useState(false);
-  const [defaultMacPath, setDefaultMacPath] = useState('~/Projects');
-  const [defaultPcPath, setDefaultPcPath] = useState('C:\\Projects');
 
   const supabase = createClient();
-
-  // Load profile settings
-  useEffect(() => {
-    const loadProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (profile) {
-          setDefaultMacPath(profile.default_mac_path || '~/Projects');
-          setDefaultPcPath(profile.default_pc_path || 'C:\\Projects');
-        }
-      }
-    };
-    loadProfile();
-  }, [supabase]);
-
-  const handleSaveSettings = async () => {
-    setIsLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          default_mac_path: defaultMacPath,
-          default_pc_path: defaultPcPath,
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
-      toast.success('Settings saved');
-    } catch (error) {
-      toast.error('Failed to save settings');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -114,40 +62,6 @@ export default function SettingsPage() {
                 System
               </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Default Paths */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Default Paths</CardTitle>
-            <CardDescription>
-              Set default directory paths for new projects
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="macPath">Default Mac Path</Label>
-              <Input
-                id="macPath"
-                value={defaultMacPath}
-                onChange={(e) => setDefaultMacPath(e.target.value)}
-                placeholder="~/Projects"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pcPath">Default PC Path</Label>
-              <Input
-                id="pcPath"
-                value={defaultPcPath}
-                onChange={(e) => setDefaultPcPath(e.target.value)}
-                placeholder="C:\Projects"
-              />
-            </div>
-            <Button onClick={handleSaveSettings} disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Paths
-            </Button>
           </CardContent>
         </Card>
 
